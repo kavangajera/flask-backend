@@ -1,0 +1,10 @@
+flask
+Flask-SQLAlchemy 
+flask-cors 
+cryptography 
+PyJWT
+PyMySQL 
+mysql-connector-python
+python-dotenv 
+SQLAlchemy 
+Werkzeug 
