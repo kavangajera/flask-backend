@@ -9,7 +9,7 @@ from middlewares.auth import token_required
 
 products_bp = Blueprint('products', __name__)
 
-
+# HI........................
 # List all products with their images and categories
 @products_bp.route('/products', methods=['GET'])
 def list_products(): 
