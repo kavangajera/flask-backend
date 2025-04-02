@@ -12,7 +12,7 @@ products_bp = Blueprint('products', __name__)
 
 # List all products with their images and categories
 @products_bp.route('/products', methods=['GET'])
-def list_products():
+def list_products(): 
     try:
         products = Product.query.options(db.joinedload(Product.images)).all()
         products_list = []
