@@ -250,7 +250,8 @@ def google_auth_callback():
     try:
         # Complete the OAuth flow
         token = oauth.google.authorize_access_token()
-        user_info = oauth.google.parse_id_token(token)
+        user_info = oauth.google.parse_id_token(token, nonce=session.get("nonce"))
+
         
         # Get user info
         google_id = user_info.get('sub')
