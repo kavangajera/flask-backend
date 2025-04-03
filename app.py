@@ -38,7 +38,7 @@ cors = CORS(app, resources={
 })
 
 # Configure MySQL database
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://mtm_user:Pass%402025%23@localhost/mtm_store_db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://mtm_user:Pass%402025%23@103.198.175.81/mtm_store_db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Security configurations
@@ -83,5 +83,5 @@ if __name__ == '__main__':
         db.create_all()
     
     # Run the app
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5005, debug=True)
 
