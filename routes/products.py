@@ -348,7 +348,7 @@ def get_categories():
         logger.error(f"Error getting categories: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-UPLOAD_FOLDER = './static-image/product_images'
+UPLOAD_FOLDER = '/var/www/flask-backend/static/product_images'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
 def allowed_file(filename):
