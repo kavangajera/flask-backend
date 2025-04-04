@@ -350,7 +350,12 @@ def get_categories():
         return jsonify({'error': str(e)}), 500
 
 UPLOAD_FOLDER = '/var/www/flask-backend/static/product_images'
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+ALLOWED_EXTENSIONS = {
+    'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'tif', 'webp',
+    'svg', 'ico', 'heif', 'heic', 'raw', 'psd', 'ai', 'eps', 'jfif',
+    'avif'
+}
+
 
 def allowed_file(filename):
     return '.' in filename and \
