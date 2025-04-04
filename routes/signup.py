@@ -23,6 +23,7 @@ def signup():
             return jsonify({'message': 'Mobile number already registered'}), 400
 
         # Create and save customer
+        
         new_customer = Customer(
             name=data['name'],
             email=data['email'],

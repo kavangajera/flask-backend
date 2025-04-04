@@ -98,6 +98,8 @@ from routes.admin_signup import admin_signup_bp
 from models.customer import Customer
 from models.product import Product, ProductImage
 from models.order import OrderHistory, OrderHistoryItem
+from models.cart import Cart, CartItem
+
 from dotenv import load_dotenv
 import os
 import secrets
