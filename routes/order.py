@@ -1,13 +1,14 @@
 from flask import Blueprint, request, jsonify
-from flask_login import login_required, current_user
 from models.order import OrderHistory, OrderHistoryItem
 from extensions import db
+from middlewares.auth import token_required
 
 order_bp = Blueprint('order', __name__)
 
 @order_bp.route('/orders', methods=['GET'])
-@login_required
+@token_required(roles=['customer'])
 def list_orders():
+    current_user = request.current_user
     orders = OrderHistory.query.filter_by(customer_id=current_user.customer_id).all()
     orders_list = []
     for order in orders:
@@ -34,10 +35,10 @@ def list_orders():
     return jsonify(orders_list)
 
 @order_bp.route('/order/create', methods=['POST'])
-@login_required
+@token_required(roles=['customer'])
 def create_order():
     data = request.get_json()
-    
+    current_user = request.current_user
     if not data or 'items' not in data:
         return jsonify({'error': 'No items provided'}), 400
     
@@ -86,8 +87,9 @@ def create_order():
         return jsonify({'error': str(e)}), 400
 
 @order_bp.route('/order/<int:order_id>', methods=['GET'])
-@login_required
+@token_required(roles=['customer'])
 def get_order(order_id):
+    current_user = request.current_user
     order = OrderHistory.query.filter_by(
         order_id=order_id,
         customer_id=current_user.customer_id
