@@ -558,29 +558,37 @@ def add_product():
         logger.error(f"Error adding product by {request.current_user.email}: {str(e)}")
         return jsonify({'message': f'An error occurred while adding the product: {str(e)}'}), 500
 
-# Add category endpoint
+
+
 @products_bp.route('/category/add', methods=['POST'])
 @token_required(roles=['admin'])
 def add_category():
     try:
-        name = request.json.get('name')
+        name = request.form.get('name')
+        image = request.files.get('image')
+
         if not name:
             return jsonify({'message': 'Category name is required'}), 400
+
+        image_url = save_image(image)
         
-        new_category = Category(name=name)
+
+        new_category = Category(name=name, image_url=image_url)
         db.session.add(new_category)
         db.session.commit()
-        
+
         return jsonify({
             'message': 'Category added successfully!',
             'category_id': new_category.category_id,
-            'name': new_category.name
+            'name': new_category.name,
+            'image_url': image_url
         }), 201
-    
+
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error adding category: {str(e)}")
         return jsonify({'message': 'An error occurred while adding the category'}), 500
+
 
 # Add subcategory endpoint
 @products_bp.route('/subcategory/add', methods=['POST'])
