@@ -5,6 +5,10 @@ from models.product import Product,ProductColor,ProductModel,ProductSpecificatio
 import decimal
 from extensions import db
 from middlewares.auth import token_required
+<<<<<<<<< Temporary merge branch 1
+=========
+
+>>>>>>>>> Temporary merge branch 2
 
 order_bp = Blueprint('order', __name__)
 
@@ -345,7 +349,12 @@ def clear_cart():
 @order_bp.route('/orders', methods=['GET'])
 @token_required(roles=['customer'])
 def list_orders():
+<<<<<<<<< Temporary merge branch 1
+    current_user = request.current_user
+    orders = OrderHistory.query.filter_by(customer_id=current_user.customer_id).all()
+=========
     orders = OrderHistory.query.filter_by(customer_id=request.current_user.customer_id).all()
+>>>>>>>>> Temporary merge branch 2
     orders_list = []
     for order in orders:
         order_dict = {
