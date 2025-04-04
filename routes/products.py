@@ -332,6 +332,7 @@ def get_categories():
             cat_dict = {
                 'category_id': category.category_id,
                 'name': category.name,
+                'image_url':category.image_url,
                 'subcategories': []
             }
             
