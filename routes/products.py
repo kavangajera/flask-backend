@@ -384,7 +384,7 @@ def add_product():
         
         # Check if we need to create a new category
         if not category_id and request.form.get('new_category'):
-            new_category = Category(name=request.form.get('new_category'))
+            new_category = Category(name=request.form.get('new_category'),image_url=save_image(request.form.get('image')))
             db.session.add(new_category)
             db.session.commit()  # Get the ID without committing
             category_id = new_category.category_id
