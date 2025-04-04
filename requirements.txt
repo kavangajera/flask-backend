@@ -9,3 +9,5 @@ python-dotenv
 SQLAlchemy 
 Werkzeug 
 flask-login
+authlib
+requests

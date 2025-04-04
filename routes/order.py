@@ -347,6 +347,8 @@ def clear_cart():
 @token_required(roles=['customer'])
 def list_orders():
     orders = OrderHistory.query.filter_by(customer_id=request.current_user.customer_id).all()
+    current_user = request.current_user
+    orders = OrderHistory.query.filter_by(customer_id=current_user.customer_id).all()
     orders_list = []
     for order in orders:
         order_dict = {
@@ -375,7 +377,7 @@ def list_orders():
 @token_required(roles=['customer'])
 def create_order():
     data = request.get_json()
-    
+    current_user = request.current_user
     if not data or 'items' not in data:
         return jsonify({'error': 'No items provided'}), 400
     
@@ -426,6 +428,7 @@ def create_order():
 @order_bp.route('/order/<int:order_id>', methods=['GET'])
 @token_required(roles=['customer'])
 def get_order(order_id):
+    current_user = request.current_user
     order = OrderHistory.query.filter_by(
         order_id=order_id,
         customer_id=request.current_user.customer_id
