@@ -97,6 +97,7 @@ from routes.admin_signup import admin_signup_bp
 from routes.wishlist import wishlist_bp
 from routes.state import state_bp
 from routes.address import address_bp
+from routes.profile import profile_bp
 # Import models
 from models.customer import Customer
 from models.product import Product, ProductImage
@@ -155,6 +156,8 @@ app.register_blueprint(admin_signup_bp)
 app.register_blueprint(wishlist_bp)
 app.register_blueprint(state_bp)
 app.register_blueprint(address_bp)
+app.register_blueprint(profile_bp)
+
 
 
 @app.after_request

@@ -1,164 +1,9 @@
-# import os
-# from venv import logger
-# from flask import Blueprint, request, jsonify, session
-# from werkzeug.utils import secure_filename
-# from extensions import db
-# from models.product import Product, ProductImage
-# from uuid import uuid4
-# from middlewares.auth import token_required
-
-# products_bp = Blueprint('products', __name__)
-
-# # HI........................
-# # List all products with their images and categories
-# @products_bp.route('/products', methods=['GET'])
-# def list_products():
-#     try:
-#         products = Product.query.options(db.joinedload(Product.images)).all()
-#         products_list = []
-#         for product in products:
-#             product_dict = {
-#                 'product_id': product.product_id,
-#                 'unit': product.unit,
-#                 'rating': product.rating,
-#                 'raters': product.raters,
-#                 'description': product.description,
-#                 'name': product.name,
-#                 'category': product.category,
-#                 'price': float(product.price) if product.price else None,
-#                 'deleted_price': float(product.deleted_price) if product.deleted_price else None,
-#                 'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in product.images]
-#             }
-#             products_list.append(product_dict)
-
-#         return jsonify(products_list)
-    
-#     except Exception as e:
-        
-#         return jsonify({'error': str(e)}), 500
-
-# # Get product details by product_id
-# @products_bp.route('/product/<int:product_id>', methods=['GET'])
-# def product_detail(product_id):
-#     try:
-#         product = Product.query.options(db.joinedload(Product.images)).get_or_404(product_id)
-
-#         product_dict = {
-#             'product_id': product.product_id,
-#             'unit': product.unit,
-#             'rating': product.rating,
-#             'raters': product.raters,
-#             'description': product.description,
-#             'name': product.name,
-#             'category': product.category,
-#             'price': float(product.price) if product.price else None,
-#             'deleted_price': float(product.deleted_price) if product.deleted_price else None,
-#             'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in product.images]
-#         }
-#         return jsonify(product_dict)
-    
-#     except Exception as e:
-#         return jsonify({'error': str(e)}), 500
-    
-
-# UPLOAD_FOLDER = '/var/www/flask-backend/static/product_images'
-# ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
-
-# def allowed_file(filename):
-#     return '.' in filename and \
-#            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-# @products_bp.route('/product/add', methods=['POST'])
-# @token_required(roles=['admin'])
-# def add_product():
-#     # At this point, the middleware has already:
-#     # 1. Verified the JWT token
-#     # 2. Checked that the user is an admin
-#     # We can access the current user via request.current_user
-#     # Ensure upload directory exists
-#     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-#     # Get product details from form data
-#     name = request.form.get('name')
-#     description = request.form.get('description')
-#     category = request.form.get('category')
-#     price = request.form.get('price')
-#     deleted_price = request.form.get('deleted_price', None)
-#     unit = request.form.get('unit', 1)
-
-#     # Validate required fields
-#     if not all([name, description, category, price]):
-#         return jsonify({'message': 'Missing required product details'}), 400
-
-#     # Create new product
-#     new_product = Product(
-#         name=name,
-#         description=description,
-#         category=category,
-#         price=float(price),
-#         deleted_price=float(deleted_price) if deleted_price else None,
-#         unit=int(unit),
-#         rating=0,
-#         raters=0
-#     )
-
-#     # Handle image uploads
-#     uploaded_images = request.files.getlist('images')
-#     product_images = []
-
-#     for image in uploaded_images:
-#         if image and allowed_file(image.filename):
-#             # Generate unique filename
-#             filename = f"{uuid4().hex}_{secure_filename(image.filename)}"
-#             file_path = os.path.join(UPLOAD_FOLDER, filename)
-            
-#             # Save file
-#             image.save(file_path)
-            
-#             # Create ProductImage instance
-#             product_image = ProductImage(
-#                 image_url=f'/product_images/{filename}'
-#             )
-#             product_images.append(product_image)
-
-#     # Associate images with product
-#     new_product.images = product_images
-
-#     try:
-#         # Add to database
-#         db.session.add(new_product)
-#         db.session.add_all(product_images)
-#         db.session.commit()
-
-#         # Log the product addition
-#         logger.info(f"Product added by admin: {request.current_user.email} - Product ID: {new_product.product_id}")
-
-#         return jsonify({
-#             'message': 'Product added successfully!',
-#             'product_id': new_product.product_id
-#         }), 201
-
-#     except Exception as e:
-#         db.session.rollback()
-#         logger.error(f"Error adding product by {request.current_user.email}: {str(e)}")
-#         return jsonify({'message': 'An error occurred while adding the product'}), 500
-
-
-
-
-
-
-
-
-
-
-
 import os
 from venv import logger
 from flask import Blueprint, request, jsonify, session
 from werkzeug.utils import secure_filename
 from extensions import db
-from models.product import Product, ProductImage, ProductModel, ProductColor, ProductSpecification, ModelSpecification
+from models.product import Product, ProductImage, ProductModel, ProductColor, ModelSpecification
 from models.category import Category, Subcategory
 from uuid import uuid4
 from middlewares.auth import token_required
@@ -189,106 +34,7 @@ def list_products():
                 'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in product.images],
             }
             
-            # Add type-specific details
-            if product.product_type == 'single':
-                product_dict['unit'] = product.unit
-                product_dict['colors'] = []
-                
-                for color in product.colors:
-                    color_dict = {
-                        'color_id': color.color_id,
-                        'name': color.name,
-                        'stock_quantity': color.stock_quantity,
-                        'price': float(color.price),
-                        'original_price': float(color.original_price) if color.original_price else None,
-                        'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in color.images]
-                    }
-                    product_dict['colors'].append(color_dict)
-                
-                product_dict['specifications'] = [
-                    {'key': spec.key, 'value': spec.value} for spec in product.specifications
-                ]
-            else:  # variable product
-                product_dict['models'] = []
-                
-                for model in product.models:
-                    model_dict = {
-                        'model_id': model.model_id,
-                        'name': model.name,
-                        'description': model.description,
-                        'colors': [],
-                        'specifications': [
-                            {'key': spec.key, 'value': spec.value} for spec in model.specifications
-                        ]
-                    }
-                    
-                    for color in model.colors:
-                        color_dict = {
-                            'color_id': color.color_id,
-                            'name': color.name,
-                            'stock_quantity': color.stock_quantity,
-                            'price': float(color.price),
-                            'original_price': float(color.original_price) if color.original_price else None,
-                            'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in color.images]
-                        }
-                        model_dict['colors'].append(color_dict)
-                    
-                    product_dict['models'].append(model_dict)
-            
-            products_list.append(product_dict)
-
-        return jsonify(products_list)
-
-    except Exception as e:
-        logger.error(f"Error listing products: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-# Get product details by product_id
-@products_bp.route('/product/<int:product_id>', methods=['GET'])
-def product_detail(product_id):
-    try:
-        product = Product.query.options(
-            db.joinedload(Product.images),
-            db.joinedload(Product.main_category),
-            db.joinedload(Product.sub_category),
-            db.joinedload(Product.models).joinedload(ProductModel.colors).joinedload(ProductColor.images),
-            db.joinedload(Product.models).joinedload(ProductModel.specifications),
-            db.joinedload(Product.specifications),
-            db.joinedload(Product.colors).joinedload(ProductColor.images)
-        ).get_or_404(product_id)
-
-        product_dict = {
-            'product_id': product.product_id,
-            'name': product.name,
-            'description': product.description,
-            'category': product.main_category.name if product.main_category else None,
-            'subcategory': product.sub_category.name if product.sub_category else None,
-            'product_type': product.product_type,
-            'rating': product.rating,
-            'raters': product.raters,
-            'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in product.images],
-        }
-        
-        # Add type-specific details
-        if product.product_type == 'single':
-            product_dict['unit'] = product.unit
-            product_dict['colors'] = []
-            
-            for color in product.colors:
-                color_dict = {
-                    'color_id': color.color_id,
-                    'name': color.name,
-                    'stock_quantity': color.stock_quantity,
-                    'price': float(color.price),
-                    'original_price': float(color.original_price) if color.original_price else None,
-                    'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in color.images]
-                }
-                product_dict['colors'].append(color_dict)
-            
-            product_dict['specifications'] = [
-                {'key': spec.key, 'value': spec.value} for spec in product.specifications
-            ]
-        else:  # variable product
+            # Add models for all product types
             product_dict['models'] = []
             
             for model in product.models:
@@ -314,6 +60,98 @@ def product_detail(product_id):
                     model_dict['colors'].append(color_dict)
                 
                 product_dict['models'].append(model_dict)
+            
+            # Add single product specific info
+            if product.product_type == 'single':
+                product_dict['unit'] = product.unit
+                product_dict['colors'] = []
+                
+                for color in product.colors:
+                    color_dict = {
+                        'color_id': color.color_id,
+                        'name': color.name,
+                        'stock_quantity': color.stock_quantity,
+                        'price': float(color.price),
+                        'original_price': float(color.original_price) if color.original_price else None,
+                        'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in color.images]
+                    }
+                    product_dict['colors'].append(color_dict)
+            
+            products_list.append(product_dict)
+
+        return jsonify(products_list)
+
+    except Exception as e:
+        logger.error(f"Error listing products: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+# Get product details by product_id
+@products_bp.route('/product/<int:product_id>', methods=['GET'])
+def product_detail(product_id):
+    try:
+        product = Product.query.options(
+            db.joinedload(Product.images),
+            db.joinedload(Product.main_category),
+            db.joinedload(Product.sub_category),
+            db.joinedload(Product.models).joinedload(ProductModel.colors).joinedload(ProductColor.images),
+            db.joinedload(Product.models).joinedload(ProductModel.specifications),
+            db.joinedload(Product.colors).joinedload(ProductColor.images)
+        ).get_or_404(product_id)
+
+        product_dict = {
+            'product_id': product.product_id,
+            'name': product.name,
+            'description': product.description,
+            'category': product.main_category.name if product.main_category else None,
+            'subcategory': product.sub_category.name if product.sub_category else None,
+            'product_type': product.product_type,
+            'rating': product.rating,
+            'raters': product.raters,
+            'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in product.images],
+        }
+        
+        # Add models for all product types
+        product_dict['models'] = []
+        
+        for model in product.models:
+            model_dict = {
+                'model_id': model.model_id,
+                'name': model.name,
+                'description': model.description,
+                'colors': [],
+                'specifications': [
+                    {'key': spec.key, 'value': spec.value} for spec in model.specifications
+                ]
+            }
+            
+            for color in model.colors:
+                color_dict = {
+                    'color_id': color.color_id,
+                    'name': color.name,
+                    'stock_quantity': color.stock_quantity,
+                    'price': float(color.price),
+                    'original_price': float(color.original_price) if color.original_price else None,
+                    'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in color.images]
+                }
+                model_dict['colors'].append(color_dict)
+            
+            product_dict['models'].append(model_dict)
+        
+        # Add single product specific info
+        if product.product_type == 'single':
+            product_dict['unit'] = product.unit
+            product_dict['colors'] = []
+            
+            for color in product.colors:
+                color_dict = {
+                    'color_id': color.color_id,
+                    'name': color.name,
+                    'stock_quantity': color.stock_quantity,
+                    'price': float(color.price),
+                    'original_price': float(color.original_price) if color.original_price else None,
+                    'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in color.images]
+                }
+                product_dict['colors'].append(color_dict)
         
         return jsonify(product_dict)
     
@@ -390,7 +228,7 @@ def add_product():
         
         # Check if we need to create a new category
         if not category_id and request.form.get('new_category'):
-            new_category = Category(name=request.form.get('new_category'),image_url=save_image(request.form.get('image')))
+            new_category = Category(name=request.form.get('new_category'),image_url=save_image(request.files.get('image')))
             db.session.add(new_category)
             db.session.commit()  # Get the ID without committing
             category_id = new_category.category_id
@@ -440,14 +278,23 @@ def add_product():
         if product_type == 'single':
             new_product.unit = int(request.form.get('unit', 1))
             
-            # Process specifications
+            # Create default model for single product
+            default_model = ProductModel(
+                product_id=new_product.product_id,
+                name="Default",
+                description=description
+            )
+            db.session.add(default_model)
+            db.session.commit()  # Get the model ID
+            
+            # Process specifications using ModelSpecification
             specs_count = int(request.form.get('specs_count', 0))
             for i in range(specs_count):
                 spec_key = request.form.get(f'spec_key_{i}')
                 spec_value = request.form.get(f'spec_value_{i}')
                 if spec_key and spec_value:
-                    spec = ProductSpecification(
-                        product_id=new_product.product_id,
+                    spec = ModelSpecification(
+                        model_id=default_model.model_id,
                         key=spec_key,
                         value=spec_value
                     )
@@ -462,9 +309,10 @@ def add_product():
                 color_stock = request.form.get(f'color_stock_{i}', 0)
                 
                 if color_name and color_price:
-                    # Create color
+                    # Create color linked to both product and default model
                     color = ProductColor(
                         product_id=new_product.product_id,
+                        model_id=default_model.model_id,
                         name=color_name,
                         stock_quantity=int(color_stock),
                         price=float(color_price),

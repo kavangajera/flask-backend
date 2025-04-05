@@ -55,3 +55,14 @@ class Customer(UserMixin, db.Model):
     
     def is_google_user(self):
         return self.google_id is not None
+    
+    def get_dict(self):
+        return {
+            'customer_id': self.customer_id,
+            'name': self.name,
+            'mobile': self.mobile,
+            'email': self.email,
+            'role': self.role,
+            'google_id': self.google_id
+            
+        }

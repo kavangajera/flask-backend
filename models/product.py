@@ -82,7 +82,7 @@ class ProductColor(db.Model):
     stock_quantity = db.Column(db.Integer, default=0)
     price = db.Column(db.Numeric(10, 2), nullable=False)
     original_price = db.Column(db.Numeric(10, 2), nullable=True)
-    
+    threshold = db.Column(db.Integer,default=10)
     # Relationships
     images = db.relationship('ProductImage', backref='color', lazy=True, cascade="all, delete-orphan")
 

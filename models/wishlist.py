@@ -29,5 +29,5 @@ class WishlistItem(db.Model):
     # Relationships with related tables
     product = db.relationship('Product', backref='wishlist_items')
     model = db.relationship('ProductModel', backref='wishlist_items')
-    specification = db.relationship('ProductSpecification', backref='wishlist_items')
+    specification = db.relationship('ModelSpecification', backref='wishlist_items')
     color = db.relationship('ProductColor', backref='wishlist_items')

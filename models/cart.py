@@ -32,5 +32,5 @@ class CartItem(db.Model):
     # Relationships with related tables
     product = db.relationship('Product', backref='cart_items')
     model = db.relationship('ProductModel', backref='cart_items')
-    specification = db.relationship('ProductSpecification', backref='cart_items')
+    specification = db.relationship('ModelSpecification', backref='cart_items')
     color = db.relationship('ProductColor', backref='cart_items')
