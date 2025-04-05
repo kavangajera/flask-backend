@@ -38,9 +38,12 @@ class Customer(UserMixin, db.Model):
     email = db.Column(db.String(255), unique=True)
     password = db.Column(db.String(255))
     role = db.Column(db.String(20), default='customer')
+
     
     # Google Auth fields
     google_id = db.Column(db.String(255), unique=True, nullable=True)
+    age = db.Column(db.Integer)
+    gender = db.Column(db.String(20))
     
     # Relationship with OrderHistory
     orders = db.relationship('OrderHistory', backref='customer', lazy=True)
@@ -63,6 +66,8 @@ class Customer(UserMixin, db.Model):
             'mobile': self.mobile,
             'email': self.email,
             'role': self.role,
-            'google_id': self.google_id
+            'google_id': self.google_id,
+            'age':self.age,
+            'gender':self.gender
             
         }
