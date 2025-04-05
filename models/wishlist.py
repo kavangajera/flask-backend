@@ -22,7 +22,7 @@ class WishlistItem(db.Model):
     wishlist_id = db.Column(db.Integer, db.ForeignKey('wishlists.wishlist_id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.product_id'), nullable=False)
     model_id = db.Column(db.Integer, db.ForeignKey('product_models.model_id'), nullable=True)
-    spec_id = db.Column(db.Integer, db.ForeignKey('product_specifications.spec_id'), nullable=True)
+    spec_id = db.Column(db.Integer, db.ForeignKey('model_specifications.spec_id'), nullable=True)
     color_id = db.Column(db.Integer, db.ForeignKey('product_colors.color_id'), nullable=True)
     added_at = db.Column(db.DateTime, default=datetime.utcnow)
     

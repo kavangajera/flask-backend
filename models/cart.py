@@ -23,7 +23,7 @@ class CartItem(db.Model):
     cart_id = db.Column(db.Integer, db.ForeignKey('carts.cart_id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.product_id'), nullable=False)
     model_id = db.Column(db.Integer, db.ForeignKey('product_models.model_id'), nullable=True)
-    spec_id = db.Column(db.Integer, db.ForeignKey('product_specifications.spec_id'), nullable=True)
+    spec_id = db.Column(db.Integer, db.ForeignKey('model_specifications.spec_id'), nullable=True)
     color_id = db.Column(db.Integer, db.ForeignKey('product_colors.color_id'), nullable=True)
     quantity = db.Column(db.Integer, default=1)
     total_item_price = db.Column(db.Numeric(10, 2), nullable=False)
