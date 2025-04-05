@@ -281,7 +281,7 @@ def add_product():
             # Create default model for single product
             default_model = ProductModel(
                 product_id=new_product.product_id,
-                name="Default",
+                name=name,
                 description=description
             )
             db.session.add(default_model)
