@@ -44,6 +44,8 @@ class Customer(UserMixin, db.Model):
     
     # Relationship with OrderHistory
     orders = db.relationship('OrderHistory', backref='customer', lazy=True)
+
+    addresses = db.relationship('Address', backref='customer', lazy=True, cascade="all, delete-orphan")
     
     def get_id(self):
         return str(self.customer_id)
