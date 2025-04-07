@@ -474,3 +474,37 @@ def add_subcategory():
         db.session.rollback()
         logger.error(f"Error adding subcategory: {str(e)}")
         return jsonify({'message': 'An error occurred while adding the subcategory'}), 500
+    
+
+@products_bp.route('/products/by-category/<int:category_id>', methods=['GET'])
+def get_products_by_category(category_id):
+    products = Product.query.filter_by(category_id=category_id).all()
+
+    result = []
+    for product in products:
+        result.append({
+            'product_id': product.product_id,
+            'name': product.name,
+            'description': product.description,
+            'category_id': product.category_id,
+            'subcategory_id': product.subcategory_id,
+            'product_type': product.product_type,
+            'rating': product.rating,
+            'raters': product.raters,
+            'created_at': product.created_at.isoformat(),
+            'updated_at': product.updated_at.isoformat(),
+            'unit': product.unit,
+            'images': [img.image_url for img in product.images],
+            'colors': [{
+                'color_id': color.color_id,
+                'name': color.name,
+                'price': float(color.price),
+                'stock_quantity': color.stock_quantity
+            } for color in product.colors],
+            'specifications': [{
+                'key': spec.key,
+                'value': spec.value
+            } for spec in product.specifications]
+        })
+
+    return jsonify(result), 200
