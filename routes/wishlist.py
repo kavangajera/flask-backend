@@ -331,7 +331,7 @@ def add_item_to_wishlist():
     }), 200
 
 
-@wishlist_bp.route('/wishlist/deleteitem', methods=['POST'])
+@wishlist_bp.route('/wishlist/deleteitem', methods=['DELETE'])
 @token_required(roles=['customer'])
 def delete_item_from_wishlist():
     data = request.get_json()
@@ -518,112 +518,4 @@ def get_wishlist_by_customer_id():
     }
     
     return jsonify(response), 200
-    customer_id = request.current_user.customer_id
-    wishlist = Wishlist.query.filter_by(customer_id=customer_id).first()
     
-    if not wishlist:
-        return jsonify({
-            'success': True,
-            'wishlist': {
-                'wishlist_id': None,
-                'customer_id': customer_id,
-                'items': [],
-                'item_count': 0
-            }
-        }), 200
-    
-    # Get all items in the wishlist with detailed information
-    wishlist_items = WishlistItem.query.filter_by(wishlist_id=wishlist.wishlist_id).all()
-    
-    items_list = []
-    for item in wishlist_items:
-        # Get product details
-        product = Product.query.get(item.product_id)
-        
-        # Get model details if applicable
-        model = None
-        if item.model_id:
-            model = ProductModel.query.get(item.model_id)
-        
-        # Get color details if applicable
-        color = None
-        if item.color_id:
-            color = ProductColor.query.get(item.color_id)
-        
-        # Get product specification details if applicable
-        product_specifications = []
-        if product:
-            prod_specs = ProductSpecification.query.filter_by(product_id=product.product_id).all()
-            for spec in prod_specs:
-                product_specifications.append({
-                    'spec_id': spec.spec_id,
-                    'key': spec.key,
-                    'value': spec.value
-                })
-        
-        # Get model specification details if applicable
-        model_specifications = []
-        if model:
-            mod_specs = ModelSpecification.query.filter_by(model_id=model.model_id).all()
-            for spec in mod_specs:
-                model_specifications.append({
-                    'spec_id': spec.spec_id,
-                    'key': spec.key,
-                    'value': spec.value
-                })
-        
-        # Get product image (first one if available)
-        product_image = None
-        if product and hasattr(product, 'images') and product.images:
-            product_image = product.images[0].image_url if product.images else None
-        
-        # Get color-specific image if available
-        color_image = None
-        if color and hasattr(color, 'images') and color.images:
-            color_image = color.images[0].image_url if color.images else None
-        
-        # Construct detailed item information
-        item_details = {
-            'item_id': item.item_id,
-            'product': {
-                'product_id': product.product_id if product else None,
-                'name': product.name if product else 'Unknown',
-                'description': product.description if product else None,
-                'product_type': product.product_type if product else None,
-                'rating': float(product.rating) if product and product.rating else 0,
-                'image_url': color_image or product_image,
-                'specifications': product_specifications,
-                'price': float(color.price) if color and hasattr(color, 'price') else (float(product.price) if product and hasattr(product, 'price') else None),
-                'original_price': float(color.original_price) if color and hasattr(color, 'original_price') else (float(product.original_price) if product and hasattr(product, 'original_price') else None)
-            },
-            'model': {
-                'model_id': model.model_id if model else None,
-                'name': model.name if model else None,
-                'description': model.description if model else None,
-                'specifications': model_specifications
-            } if model else None,
-            'color': {
-                'color_id': color.color_id if color else None,
-                'name': color.name if color else None,
-                'price': float(color.price) if color and hasattr(color, 'price') else None,
-                'original_price': float(color.original_price) if color and hasattr(color, 'original_price') and color.original_price else None,
-                'stock_quantity': color.stock_quantity if color and hasattr(color, 'stock_quantity') else None
-            } if color else None,
-            'added_at': item.added_at.isoformat() if hasattr(item, 'added_at') and item.added_at else None
-        }
-        
-        items_list.append(item_details)
-    
-    response = {
-        'success': True,
-        'wishlist': {
-            'wishlist_id': wishlist.wishlist_id,
-            'customer_id': customer_id,
-            'created_at': wishlist.created_at.isoformat() if hasattr(wishlist, 'created_at') and wishlist.created_at else None,
-            'updated_at': wishlist.updated_at.isoformat() if hasattr(wishlist, 'updated_at') and wishlist.updated_at else None,
-            'item_count': len(items_list),
-            'items': items_list
-        }
-    }
-    
-    return jsonify(response), 200
