@@ -501,10 +501,7 @@ def get_products_by_category(category_id):
                 'price': float(color.price),
                 'stock_quantity': color.stock_quantity
             } for color in product.colors],
-            'specifications': [{
-                'key': spec.key,
-                'value': spec.value
-            } for spec in product.specifications]
+            
         })
 
     return jsonify(result), 200
