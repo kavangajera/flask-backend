@@ -49,6 +49,9 @@ class Product(db.Model):
     images = db.relationship('ProductImage', backref='product', lazy=True, cascade="all, delete-orphan")
     models = db.relationship('ProductModel', backref='product', lazy=True, cascade="all, delete-orphan")
     colors = db.relationship('ProductColor', backref='product', lazy=True, cascade="all, delete-orphan")
+    
+    cart_items = db.relationship('CartItem', backref='product', lazy=True, cascade="all, delete-orphan")
+    wishlist_items = db.relationship('WishlistItem', backref='product', lazy=True, cascade="all, delete-orphan")
 
 class ProductImage(db.Model):
     __tablename__ = 'product_images'

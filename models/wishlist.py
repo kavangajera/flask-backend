@@ -27,7 +27,7 @@ class WishlistItem(db.Model):
     added_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationships with related tables
-    product = db.relationship('Product', backref='wishlist_items')
+    # product = db.relationship('Product', backref='wishlist_items', lazy=True)
     model = db.relationship('ProductModel', backref='wishlist_items')
     specification = db.relationship('ModelSpecification', backref='wishlist_items')
     color = db.relationship('ProductColor', backref='wishlist_items')
