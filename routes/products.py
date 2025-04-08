@@ -1028,3 +1028,43 @@ def update_product_rating(product_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 400
+
+@products_bp.route('/product/get/productstatus', methods=['GET'])
+@token_required(roles=['admin'])
+def get_product_status():
+    results = []
+
+    products = Product.query.all()
+
+    for product in products:
+        for model in product.models:
+            for color in model.colors:
+                images = ProductImage.query.filter_by(
+                    product_id=product.product_id,
+                    color_id=color.color_id
+                ).all()
+                image_urls = [img.image_url for img in images]
+
+                # This needs to be inside the color loop
+                status='IN_STOCK'
+
+                if(color.stock_quantity<=color.threshold):
+                    status='LOW_STOCK'
+                
+                if(color.stock_quantity==0):
+                      status='OUT_OF_STOCK'
+                
+                results.append({
+                    "product_id": product.product_id,
+                    "product_name": product.name,
+                    "model_id": model.model_id,
+                    "model_name": model.name,
+                    "color_id": color.color_id,
+                    "color_name": color.name,
+                    "images": image_urls,
+                    "stock_quantity": color.stock_quantity,
+                    "threshold": color.threshold,
+                    "status":status
+                })
+                
+    return jsonify(results), 200
