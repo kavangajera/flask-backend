@@ -250,7 +250,7 @@
 from flask import Blueprint, request, jsonify
 from models.order import OrderHistory, OrderHistoryItem
 from models.cart import Cart,CartItem
-from models.product import Product,ProductColor,ProductModel,ProductSpecification,ModelSpecification
+from models.product import Product,ProductColor,ProductModel,ModelSpecification
 from models.wishlist import Wishlist,WishlistItem
 import decimal
 from extensions import db

@@ -50,7 +50,6 @@ class Product(db.Model):
     images = db.relationship('ProductImage', backref='product', lazy=True, cascade="all, delete-orphan")
     models = db.relationship('ProductModel', backref='product', lazy=True, cascade="all, delete-orphan")
     colors = db.relationship('ProductColor', backref='product', lazy=True, cascade="all, delete-orphan")
-    specifications = db.relationship('ProductSpecification', backref='product', lazy=True, cascade="all, delete-orphan")
 
 class ProductImage(db.Model):
     __tablename__ = 'product_images'
@@ -86,13 +85,8 @@ class ProductColor(db.Model):
     # Relationships
     images = db.relationship('ProductImage', backref='color', lazy=True, cascade="all, delete-orphan")
 
-class ProductSpecification(db.Model):
-    __tablename__ = 'product_specifications'
-    
-    spec_id = db.Column(db.Integer, primary_key=True)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.product_id'), nullable=False)
-    key = db.Column(db.String(100), nullable=False)
-    value = db.Column(db.String(255), nullable=False)
+
+
 
 class ModelSpecification(db.Model):
     __tablename__ = 'model_specifications'

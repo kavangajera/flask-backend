@@ -508,3 +508,526 @@ def get_products_by_category(category_id):
         })
 
     return jsonify(result), 200
+
+
+
+from datetime import datetime
+
+
+
+
+# Constants for image uploads
+UPLOAD_FOLDER = '/var/www/flask-backend/static/product_images'
+ALLOWED_EXTENSIONS = {
+    'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'tif', 'webp',
+    'svg', 'ico', 'heif', 'heic', 'raw', 'psd', 'ai', 'eps', 'jfif',
+    'avif'
+}
+
+# Helper functions for image uploads
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def save_image(image_file):
+    if image_file and allowed_file(image_file.filename):
+        # Generate unique filename
+        filename = f"{uuid4().hex}_{secure_filename(image_file.filename)}"
+        file_path = os.path.join(UPLOAD_FOLDER, filename)
+        
+        # Save file
+        image_file.save(file_path)
+        return f'/product_images/{filename}'
+    return None
+
+# Update an entire product (PUT)
+@products_bp.route('/<int:product_id>', methods=['PUT'])
+def update_product(product_id):
+    product = Product.query.get_or_404(product_id)
+    data = request.form.to_dict() if request.form else request.json
+    
+    # Update basic product information
+    product.name = data.get('name', product.name)
+    product.description = data.get('description', product.description)
+    product.category_id = data.get('category_id', product.category_id)
+    product.subcategory_id = data.get('subcategory_id', product.subcategory_id)
+    product.product_type = data.get('product_type', product.product_type)
+    product.unit = data.get('unit', product.unit)
+    product.updated_at = datetime.utcnow()
+    
+    try:
+        db.session.commit()
+        return jsonify({'message': 'Product updated successfully', 'product_id': product.product_id}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+# Partially update a product (PATCH)
+@products_bp.route('/<int:product_id>', methods=['PATCH'])
+def partially_update_product(product_id):
+    product = Product.query.get_or_404(product_id)
+    data = request.form.to_dict() if request.form else request.json
+    
+    # Update only the fields that are provided
+    if 'name' in data:
+        product.name = data['name']
+    if 'description' in data:
+        product.description = data['description']
+    if 'category_id' in data:
+        product.category_id = data['category_id']
+    if 'subcategory_id' in data:
+        product.subcategory_id = data['subcategory_id']
+    if 'product_type' in data:
+        product.product_type = data['product_type']
+    if 'unit' in data:
+        product.unit = data['unit']
+    
+    product.updated_at = datetime.utcnow()
+    
+    try:
+        db.session.commit()
+        return jsonify({'message': 'Product partially updated', 'product_id': product.product_id}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+# Delete a product
+@products_bp.route('/<int:product_id>', methods=['DELETE'])
+def delete_product(product_id):
+    product = Product.query.get_or_404(product_id)
+    
+    # Get all image paths to delete files from filesystem
+    image_paths = []
+    for image in product.images:
+        if image.image_url and not image.image_url.startswith('http'):
+            image_paths.append(image.image_url.replace('/product_images/', ''))
+    
+    try:
+        # Delete product from database (cascade will handle related records)
+        db.session.delete(product)
+        db.session.commit()
+        
+        # Delete image files from filesystem
+        for img_path in image_paths:
+            try:
+                file_path = os.path.join(UPLOAD_FOLDER, img_path)
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+            except Exception as e:
+                # Log error but continue with other operations
+                print(f"Error deleting file {img_path}: {str(e)}")
+        
+        return jsonify({'message': 'Product deleted successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+# ----- Product Images Routes -----
+
+# Add new product image
+@products_bp.route('/<int:product_id>/images', methods=['POST'])
+def add_product_image(product_id):
+    product = Product.query.get_or_404(product_id)
+    
+    # Check if image file is provided
+    if 'image' not in request.files:
+        return jsonify({'error': 'No image file provided'}), 400
+    
+    image_file = request.files['image']
+    image_url = save_image(image_file)
+    
+    if not image_url:
+        return jsonify({'error': 'Invalid image file'}), 400
+    
+    # Get color_id from form data if available
+    color_id = None
+    if request.form and 'color_id' in request.form:
+        color_id = request.form.get('color_id')
+    
+    new_image = ProductImage(
+        product_id=product_id,
+        color_id=color_id,
+        image_url=image_url
+    )
+    
+    try:
+        db.session.add(new_image)
+        db.session.commit()
+        return jsonify({
+            'message': 'Image added successfully',
+            'image_id': new_image.image_id,
+            'image_url': image_url
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+# Update product image
+@products_bp.route('/<int:product_id>/images/<int:image_id>', methods=['PUT'])
+def update_product_image(product_id, image_id):
+    image = ProductImage.query.get_or_404(image_id)
+    if image.product_id != product_id:
+        return jsonify({'error': 'Image does not belong to this product'}), 400
+    
+    old_image_path = None
+    if image.image_url and not image.image_url.startswith('http'):
+        old_image_path = image.image_url.replace('/product_images/', '')
+    
+    # Check if a new image file is provided
+    if 'image' in request.files:
+        image_file = request.files['image']
+        image_url = save_image(image_file)
+        
+        if image_url:
+            image.image_url = image_url
+    
+    # Update color_id if provided
+    if request.form and 'color_id' in request.form:
+        image.color_id = request.form.get('color_id')
+    
+    try:
+        db.session.commit()
+        
+        # Delete old image file if replaced
+        if old_image_path and image.image_url != f'/product_images/{old_image_path}':
+            try:
+                file_path = os.path.join(UPLOAD_FOLDER, old_image_path)
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+            except Exception as e:
+                # Log error but continue with other operations
+                print(f"Error deleting file {old_image_path}: {str(e)}")
+        
+        return jsonify({
+            'message': 'Image updated successfully',
+            'image_url': image.image_url
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+# Delete product image
+@products_bp.route('/<int:product_id>/images/<int:image_id>', methods=['DELETE'])
+def delete_product_image(product_id, image_id):
+    image = ProductImage.query.get_or_404(image_id)
+    if image.product_id != product_id:
+        return jsonify({'error': 'Image does not belong to this product'}), 400
+    
+    # Store image path to delete file after database record
+    image_path = None
+    if image.image_url and not image.image_url.startswith('http'):
+        image_path = image.image_url.replace('/product_images/', '')
+    
+    try:
+        db.session.delete(image)
+        db.session.commit()
+        
+        # Delete image file from filesystem
+        if image_path:
+            try:
+                file_path = os.path.join(UPLOAD_FOLDER, image_path)
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+            except Exception as e:
+                # Log error but continue with other operations
+                print(f"Error deleting file {image_path}: {str(e)}")
+        
+        return jsonify({'message': 'Image deleted successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+# ----- Product Models Routes -----
+
+# Add new product model
+@products_bp.route('/<int:product_id>/models', methods=['POST'])
+def add_product_model(product_id):
+    product = Product.query.get_or_404(product_id)
+    data = request.form.to_dict() if request.form else request.json
+    
+    new_model = ProductModel(
+        product_id=product_id,
+        name=data['name'],
+        description=data['description']
+    )
+    
+    try:
+        db.session.add(new_model)
+        db.session.commit()
+        return jsonify({'message': 'Model added successfully', 'model_id': new_model.model_id}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+# Update product model
+@products_bp.route('/<int:product_id>/models/<int:model_id>', methods=['PUT'])
+def update_product_model(product_id, model_id):
+    model = ProductModel.query.get_or_404(model_id)
+    if model.product_id != product_id:
+        return jsonify({'error': 'Model does not belong to this product'}), 400
+        
+    data = request.form.to_dict() if request.form else request.json
+    
+    model.name = data.get('name', model.name)
+    model.description = data.get('description', model.description)
+    
+    try:
+        db.session.commit()
+        return jsonify({'message': 'Model updated successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+# Delete product model
+@products_bp.route('/<int:product_id>/models/<int:model_id>', methods=['DELETE'])
+def delete_product_model(product_id, model_id):
+    model = ProductModel.query.get_or_404(model_id)
+    if model.product_id != product_id:
+        return jsonify({'error': 'Model does not belong to this product'}), 400
+    
+    try:
+        db.session.delete(model)
+        db.session.commit()
+        return jsonify({'message': 'Model deleted successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+# ----- Product Colors Routes -----
+
+# Add new product color
+@products_bp.route('/<int:product_id>/colors', methods=['POST'])
+def add_product_color(product_id):
+    product = Product.query.get_or_404(product_id)
+    data = request.form.to_dict() if request.form else request.json
+    
+    new_color = ProductColor(
+        product_id=product_id,
+        model_id=data.get('model_id'),
+        name=data['name'],
+        stock_quantity=data.get('stock_quantity', 0),
+        price=data['price'],
+        original_price=data.get('original_price'),
+        threshold=data.get('threshold', 10)
+    )
+    
+    try:
+        db.session.add(new_color)
+        db.session.commit()
+        return jsonify({'message': 'Color added successfully', 'color_id': new_color.color_id}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+# Update product color
+@products_bp.route('/<int:product_id>/colors/<int:color_id>', methods=['PUT'])
+def update_product_color(product_id, color_id):
+    color = ProductColor.query.get_or_404(color_id)
+    if color.product_id != product_id:
+        return jsonify({'error': 'Color does not belong to this product'}), 400
+        
+    data = request.form.to_dict() if request.form else request.json
+    
+    color.model_id = data.get('model_id', color.model_id)
+    color.name = data.get('name', color.name)
+    color.stock_quantity = data.get('stock_quantity', color.stock_quantity)
+    color.price = data.get('price', color.price)
+    color.original_price = data.get('original_price', color.original_price)
+    color.threshold = data.get('threshold', color.threshold)
+    
+    try:
+        db.session.commit()
+        return jsonify({'message': 'Color updated successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+# Partially update product color (specifically for stock update)
+@products_bp.route('/<int:product_id>/colors/<int:color_id>', methods=['PATCH'])
+def partially_update_product_color(product_id, color_id):
+    color = ProductColor.query.get_or_404(color_id)
+    if color.product_id != product_id:
+        return jsonify({'error': 'Color does not belong to this product'}), 400
+        
+    data = request.form.to_dict() if request.form else request.json
+    
+    if 'stock_quantity' in data:
+        color.stock_quantity = data['stock_quantity']
+    if 'price' in data:
+        color.price = data['price']
+    if 'original_price' in data:
+        color.original_price = data['original_price']
+    if 'threshold' in data:
+        color.threshold = data['threshold']
+    if 'name' in data:
+        color.name = data['name']
+    if 'model_id' in data:
+        color.model_id = data['model_id']
+    
+    try:
+        db.session.commit()
+        return jsonify({'message': 'Color partially updated successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+# Delete product color
+@products_bp.route('/<int:product_id>/colors/<int:color_id>', methods=['DELETE'])
+def delete_product_color(product_id, color_id):
+    color = ProductColor.query.get_or_404(color_id)
+    if color.product_id != product_id:
+        return jsonify({'error': 'Color does not belong to this product'}), 400
+    
+    try:
+        db.session.delete(color)
+        db.session.commit()
+        return jsonify({'message': 'Color deleted successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+# ----- Product Specifications Routes -----
+
+# Add new product specification
+@products_bp.route('/<int:product_id>/specifications', methods=['POST'])
+def add_product_specification(product_id):
+    product = Product.query.get_or_404(product_id)
+    data = request.form.to_dict() if request.form else request.json
+    
+    new_spec = ModelSpecification(
+        product_id=product_id,
+        key=data['key'],
+        value=data['value']
+    )
+    
+    try:
+        db.session.add(new_spec)
+        db.session.commit()
+        return jsonify({'message': 'Specification added successfully', 'spec_id': new_spec.spec_id}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+# Update product specification
+@products_bp.route('/<int:product_id>/specifications/<int:spec_id>', methods=['PUT'])
+def update_product_specification(product_id, spec_id):
+    spec = ModelSpecification.query.get_or_404(spec_id)
+    if spec.product_id != product_id:
+        return jsonify({'error': 'Specification does not belong to this product'}), 400
+        
+    data = request.form.to_dict() if request.form else request.json
+    
+    spec.key = data.get('key', spec.key)
+    spec.value = data.get('value', spec.value)
+    
+    try:
+        db.session.commit()
+        return jsonify({'message': 'Specification updated successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+# Delete product specification
+@products_bp.route('/<int:product_id>/specifications/<int:spec_id>', methods=['DELETE'])
+def delete_product_specification(product_id, spec_id):
+    spec = ModelSpecification.query.get_or_404(spec_id)
+    if spec.product_id != product_id:
+        return jsonify({'error': 'Specification does not belong to this product'}), 400
+    
+    try:
+        db.session.delete(spec)
+        db.session.commit()
+        return jsonify({'message': 'Specification deleted successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+# ----- Model Specifications Routes -----
+
+# Add new model specification
+@products_bp.route('/<int:product_id>/models/<int:model_id>/specifications', methods=['POST'])
+def add_model_specification(product_id, model_id):
+    model = ProductModel.query.get_or_404(model_id)
+    if model.product_id != product_id:
+        return jsonify({'error': 'Model does not belong to this product'}), 400
+        
+    data = request.form.to_dict() if request.form else request.json
+    
+    new_spec = ModelSpecification(
+        model_id=model_id,
+        key=data['key'],
+        value=data['value']
+    )
+    
+    try:
+        db.session.add(new_spec)
+        db.session.commit()
+        return jsonify({'message': 'Model specification added successfully', 'spec_id': new_spec.spec_id}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+# Update model specification
+@products_bp.route('/<int:product_id>/models/<int:model_id>/specifications/<int:spec_id>', methods=['PUT'])
+def update_model_specification(product_id, model_id, spec_id):
+    model = ProductModel.query.get_or_404(model_id)
+    if model.product_id != product_id:
+        return jsonify({'error': 'Model does not belong to this product'}), 400
+        
+    spec = ModelSpecification.query.get_or_404(spec_id)
+    if spec.model_id != model_id:
+        return jsonify({'error': 'Specification does not belong to this model'}), 400
+        
+    data = request.form.to_dict() if request.form else request.json
+    
+    spec.key = data.get('key', spec.key)
+    spec.value = data.get('value', spec.value)
+    
+    try:
+        db.session.commit()
+        return jsonify({'message': 'Model specification updated successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+# Delete model specification
+@products_bp.route('/<int:product_id>/models/<int:model_id>/specifications/<int:spec_id>', methods=['DELETE'])
+def delete_model_specification(product_id, model_id, spec_id):
+    model = ProductModel.query.get_or_404(model_id)
+    if model.product_id != product_id:
+        return jsonify({'error': 'Model does not belong to this product'}), 400
+        
+    spec = ModelSpecification.query.get_or_404(spec_id)
+    if spec.model_id != model_id:
+        return jsonify({'error': 'Specification does not belong to this model'}), 400
+    
+    try:
+        db.session.delete(spec)
+        db.session.commit()
+        return jsonify({'message': 'Model specification deleted successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+# Batch update product rating
+@products_bp.route('/<int:product_id>/rating', methods=['PATCH'])
+def update_product_rating(product_id):
+    product = Product.query.get_or_404(product_id)
+    data = request.form.to_dict() if request.form else request.json
+    
+    if 'rating' in data and 'raters' in data:
+        product.rating = data['rating']
+        product.raters = data['raters']
+    elif 'rating' in data:
+        # If adding a new rating
+        new_rating = float(data['rating'])
+        current_total = product.rating * product.raters
+        product.raters += 1
+        product.rating = (current_total + new_rating) / product.raters
+    
+    try:
+        db.session.commit()
+        return jsonify({'message': 'Product rating updated successfully', 'new_rating': product.rating}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400

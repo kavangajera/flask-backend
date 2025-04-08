@@ -457,7 +457,7 @@
 from flask import Blueprint, request, jsonify
 from models.order import OrderHistory, OrderHistoryItem
 from models.cart import Cart,CartItem
-from models.product import Product,ProductColor,ProductModel,ProductSpecification,ModelSpecification
+from models.product import Product,ProductColor,ProductModel,ModelSpecification
 import decimal
 from extensions import db
 from middlewares.auth import token_required
@@ -760,16 +760,8 @@ def get_cart_by_customer_id():
         if item.color_id:
             color = ProductColor.query.get(item.color_id)
         
-        # Get product specification details if applicable
-        product_specifications = []
-        if product:
-            prod_specs = ProductSpecification.query.filter_by(product_id=product.product_id).all()
-            for spec in prod_specs:
-                product_specifications.append({
-                    'spec_id': spec.spec_id,
-                    'key': spec.key,
-                    'value': spec.value
-                })
+       
+       
         
         # Get model specification details if applicable
         model_specifications = []
@@ -802,7 +794,7 @@ def get_cart_by_customer_id():
                 'product_type': product.product_type if product else None,
                 'rating': float(product.rating) if product and product.rating else 0,
                 'image_url': color_image or product_image,
-                'specifications': product_specifications
+                'specifications': model_specifications
             },
             'model': {
                 'model_id': model.model_id if model else None,
