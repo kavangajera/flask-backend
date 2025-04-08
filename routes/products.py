@@ -563,29 +563,6 @@ from datetime import datetime
 
 
 
-# Constants for image uploads
-UPLOAD_FOLDER = '/var/www/flask-backend/static/product_images'
-ALLOWED_EXTENSIONS = {
-    'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'tif', 'webp',
-    'svg', 'ico', 'heif', 'heic', 'raw', 'psd', 'ai', 'eps', 'jfif',
-    'avif'
-}
-
-# Helper functions for image uploads
-def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-def save_image(image_file):
-    if image_file and allowed_file(image_file.filename):
-        # Generate unique filename
-        filename = f"{uuid4().hex}_{secure_filename(image_file.filename)}"
-        file_path = os.path.join(UPLOAD_FOLDER, filename)
-        
-        # Save file
-        image_file.save(file_path)
-        return f'/product_images/{filename}'
-    return None
 
 # Update an entire product (PUT)
 @products_bp.route('/<int:product_id>', methods=['PUT'])
