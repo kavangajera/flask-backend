@@ -18,7 +18,7 @@ def list_products():
             db.joinedload(Product.images),
             db.joinedload(Product.main_category),
             db.joinedload(Product.sub_category)
-        ).all()
+        ).all() 
         
         products_list = []
         for product in products:
@@ -63,7 +63,7 @@ def list_products():
             
             # Add single product specific info
             if product.product_type == 'single':
-                product_dict['unit'] = product.unit
+            
                 product_dict['colors'] = []
                 
                 for color in product.colors:
@@ -139,7 +139,7 @@ def product_detail(product_id):
         
         # Add single product specific info
         if product.product_type == 'single':
-            product_dict['unit'] = product.unit
+         
             product_dict['colors'] = []
             
             for color in product.colors:
@@ -276,7 +276,7 @@ def add_product():
         
         # Handle Single Product
         if product_type == 'single':
-            new_product.unit = int(request.form.get('unit', 1))
+            
             
             # Create default model for single product
             default_model = ProductModel(
@@ -307,6 +307,7 @@ def add_product():
                 color_price = request.form.get(f'color_price_{i}')
                 color_original_price = request.form.get(f'color_original_price_{i}')
                 color_stock = request.form.get(f'color_stock_{i}', 0)
+                threshold = request.form.get(f'threshold_{i}', 10)
                 
                 if color_name and color_price:
                     # Create color linked to both product and default model
@@ -317,6 +318,8 @@ def add_product():
                         stock_quantity=int(color_stock),
                         price=float(color_price),
                         original_price=float(color_original_price) if color_original_price else None
+                        ,threshold=int(threshold)
+                        
                     )
                     db.session.add(color)
                     db.session.commit()  # Get color ID
@@ -371,7 +374,7 @@ def add_product():
                         color_price = request.form.get(f'model_{i}_color_price_{j}')
                         color_original_price = request.form.get(f'model_{i}_color_original_price_{j}')
                         color_stock = request.form.get(f'model_{i}_color_stock_{j}', 0)
-                        
+                        threshold = request.form.get(f'model_{i}_threshold_{j}', 10)
                         if color_name and color_price:
                             # Create color
                             color = ProductColor(
@@ -380,7 +383,8 @@ def add_product():
                                 name=color_name,
                                 stock_quantity=int(color_stock),
                                 price=float(color_price),
-                                original_price=float(color_original_price) if color_original_price else None
+                                original_price=float(color_original_price) if color_original_price else None,
+                                threshold=int(threshold)
                             )
                             db.session.add(color)
                             db.session.commit()  # Get color ID
@@ -478,34 +482,80 @@ def add_subcategory():
 
 @products_bp.route('/products/by-category/<int:category_id>', methods=['GET'])
 def get_products_by_category(category_id):
-    products = Product.query.filter_by(category_id=category_id).all()
-
-    result = []
-    for product in products:
-        result.append({
-            'product_id': product.product_id,
-            'name': product.name,
-            'description': product.description,
-            'category_id': product.category_id,
-            'subcategory_id': product.subcategory_id,
-            'product_type': product.product_type,
-            'rating': product.rating,
-            'raters': product.raters,
-            'created_at': product.created_at.isoformat(),
-            'updated_at': product.updated_at.isoformat(),
-            'unit': product.unit,
-            'images': [img.image_url for img in product.images],
-            'colors': [{
-                'color_id': color.color_id,
-                'name': color.name,
-                'price': float(color.price),
-                'stock_quantity': color.stock_quantity
-            } for color in product.colors],
+    try:
+        products = Product.query.options(
+            db.joinedload(Product.images),
+            db.joinedload(Product.main_category),
+            db.joinedload(Product.sub_category)
+        ).filter(Product.category_id == category_id).all()
+        
+        if not products:
+            return jsonify([])
+        
+        products_list = []
+        for product in products:
+            product_dict = {
+                'product_id': product.product_id,
+                'name': product.name,
+                'description': product.description,
+                'category': product.main_category.name if product.main_category else None,
+                'subcategory': product.sub_category.name if product.sub_category else None,
+                'product_type': product.product_type,
+                'rating': product.rating,
+                'raters': product.raters,
+                'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in product.images],
+            }
             
-        })
+            # Add models for all product types
+            product_dict['models'] = []
+            
+            for model in product.models:
+                model_dict = {
+                    'model_id': model.model_id,
+                    'name': model.name,
+                    'description': model.description,
+                    'colors': [],
+                    'specifications': [
+                        {'key': spec.key, 'value': spec.value} for spec in model.specifications
+                    ]
+                }
+                
+                for color in model.colors:
+                    color_dict = {
+                        'color_id': color.color_id,
+                        'name': color.name,
+                        'stock_quantity': color.stock_quantity,
+                        'price': float(color.price),
+                        'original_price': float(color.original_price) if color.original_price else None,
+                        'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in color.images]
+                    }
+                    model_dict['colors'].append(color_dict)
+                
+                product_dict['models'].append(model_dict)
+            
+            # Add single product specific info
+            if product.product_type == 'single':
+               
+                product_dict['colors'] = []
+                
+                for color in product.colors:
+                    color_dict = {
+                        'color_id': color.color_id,
+                        'name': color.name,
+                        'stock_quantity': color.stock_quantity,
+                        'price': float(color.price),
+                        'original_price': float(color.original_price) if color.original_price else None,
+                        'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in color.images]
+                    }
+                    product_dict['colors'].append(color_dict)
+            
+            products_list.append(product_dict)
 
-    return jsonify(result), 200
+        return jsonify(products_list)
 
+    except Exception as e:
+        logger.error(f"Error getting products by category: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 
 from datetime import datetime
@@ -549,7 +599,6 @@ def update_product(product_id):
     product.category_id = data.get('category_id', product.category_id)
     product.subcategory_id = data.get('subcategory_id', product.subcategory_id)
     product.product_type = data.get('product_type', product.product_type)
-    product.unit = data.get('unit', product.unit)
     product.updated_at = datetime.utcnow()
     
     try:
@@ -576,8 +625,7 @@ def partially_update_product(product_id):
         product.subcategory_id = data['subcategory_id']
     if 'product_type' in data:
         product.product_type = data['product_type']
-    if 'unit' in data:
-        product.unit = data['unit']
+  
     
     product.updated_at = datetime.utcnow()
     

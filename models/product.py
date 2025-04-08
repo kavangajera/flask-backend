@@ -43,8 +43,7 @@ class Product(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # For single product
-    unit = db.Column(db.Integer, default=1)
+    
     
     # Relationships
     images = db.relationship('ProductImage', backref='product', lazy=True, cascade="all, delete-orphan")
