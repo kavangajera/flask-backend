@@ -518,4 +518,33 @@ def get_wishlist_by_customer_id():
     }
     
     return jsonify(response), 200
+
+# ADD BY FRONTEND DEV 
+# CLEAR WISHLIST 
+
+@wishlist_bp.route('/wishlist/clear', methods=['POST'])
+@token_required(roles=['customer'])
+def clear_wishlist():
+    # Get the customer's wishlist
+    wishlist = Wishlist.query.filter_by(customer_id=request.current_user.customer_id).first()
+    
+    if not wishlist:
+        return jsonify({'error': 'No wishlist found for this user'}), 404
+    
+    try:
+        # Delete all items in the wishlist
+        WishlistItem.query.filter_by(wishlist_id=wishlist.wishlist_id).delete()
+        
+        # Commit the changes
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Wishlist cleared successfully',
+            'wishlist_id': wishlist.wishlist_id
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Error clearing wishlist: {str(e)}'}), 500
     
