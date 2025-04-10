@@ -7,6 +7,7 @@ from models.product import Product, ProductImage, ProductModel, ProductColor, Mo
 from models.category import Category, Subcategory
 from uuid import uuid4
 from middlewares.auth import token_required
+import json
 
 products_bp = Blueprint('products', __name__)
 
@@ -1093,3 +1094,237 @@ def get_product_status():
                 })
                 
     return jsonify(results), 200
+
+
+
+
+
+@products_bp.route('/<int:product_id>/update-all', methods=['POST'])
+def update_all_product_data(product_id):
+    """Combined endpoint to update all product data in a single request"""
+    product = Product.query.get_or_404(product_id)
+    
+    # Get form data or JSON data
+    if request.content_type and 'multipart/form-data' in request.content_type:
+        # Handle form data with potential file uploads
+        data = json.loads(request.form.get('productData', '{}'))
+        files = request.files.getlist('images')
+        color_images = {}
+        
+        # Process color images from request
+        for key in request.files:
+            if key.startswith('color_image_'):
+                color_id = key.split('_')[-1]
+                if color_id not in color_images:
+                    color_images[color_id] = []
+                color_images[color_id].append(request.files[key])
+    else:
+        # Handle JSON data
+        data = request.json
+        files = []
+        color_images = {}
+    
+    try:
+        # Start transaction
+        db.session.begin_nested()
+        
+        # 1. Update basic product information
+        if 'basic' in data:
+            basic_data = data['basic']
+            product.name = basic_data.get('name', product.name)
+            product.description = basic_data.get('description', product.description)
+            product.category_id = basic_data.get('category_id', product.category_id)
+            product.subcategory_id = basic_data.get('subcategory_id', product.subcategory_id)
+            product.product_type = basic_data.get('product_type', product.product_type)
+            product.updated_at = datetime.utcnow()
+        
+        # 2. Process specifications
+        if 'specifications' in data:
+            specs_data = data['specifications']
+            
+            # Handle spec updates and additions
+            existing_spec_ids = {spec.spec_id for spec in product.specifications}
+            processed_spec_ids = set()
+            
+            for spec_item in specs_data:
+                spec_id = spec_item.get('spec_id')
+                
+                if spec_id and spec_id in existing_spec_ids:
+                    # Update existing spec
+                    spec = ModelSpecification.query.get(spec_id)
+                    spec.key = spec_item.get('key', spec.key)
+                    spec.value = spec_item.get('value', spec.value)
+                    processed_spec_ids.add(spec_id)
+                elif not spec_id:
+                    # Add new spec
+                    new_spec = ModelSpecification(
+                        product_id=product_id,
+                        key=spec_item.get('key'),
+                        value=spec_item.get('value')
+                    )
+                    db.session.add(new_spec)
+            
+            # Delete specs not included in the update
+            specs_to_delete = existing_spec_ids - processed_spec_ids
+            for spec_id in specs_to_delete:
+                spec = ModelSpecification.query.get(spec_id)
+                db.session.delete(spec)
+        
+        # 3. Process color variants
+        if 'colors' in data:
+            colors_data = data['colors']
+            
+            # Handle color updates and additions
+            existing_color_ids = {color.color_id for color in product.colors}
+            processed_color_ids = set()
+            
+            for color_item in colors_data:
+                color_id = color_item.get('color_id')
+                
+                if color_id and color_id in existing_color_ids:
+                    # Update existing color
+                    color = ProductColor.query.get(color_id)
+                    color.name = color_item.get('name', color.name)
+                    color.price = color_item.get('price', color.price)
+                    color.original_price = color_item.get('original_price', color.original_price)
+                    color.stock_quantity = color_item.get('stock_quantity', color.stock_quantity)
+                    color.threshold = color_item.get('threshold', color.threshold)
+                    color.model_id = color_item.get('model_id', color.model_id)
+                    processed_color_ids.add(color_id)
+                elif not color_id:
+                    # Add new color
+                    new_color = ProductColor(
+                        product_id=product_id,
+                        name=color_item.get('name'),
+                        price=color_item.get('price'),
+                        original_price=color_item.get('original_price'),
+                        stock_quantity=color_item.get('stock_quantity', 0),
+                        threshold=color_item.get('threshold', 10),
+                        model_id=color_item.get('model_id')
+                    )
+                    db.session.add(new_color)
+                    db.session.flush()  # Flush to get the new color ID
+                    
+                    # If this is a new color with a temp_id, store mapping for image processing
+                    if 'temp_id' in color_item:
+                        color_item['color_id'] = new_color.color_id
+            
+            # Delete colors not included in the update
+            colors_to_delete = existing_color_ids - processed_color_ids
+            for color_id in colors_to_delete:
+                color = ProductColor.query.get(color_id)
+                db.session.delete(color)
+        
+        # 4. Process main product images
+        if 'images_to_delete' in data:
+            # Delete images that were removed
+            for image_id in data['images_to_delete']:
+                image = ProductImage.query.get(image_id)
+                if image and image.product_id == product_id:
+                    # Get image path to delete file from filesystem
+                    image_path = None
+                    if image.image_url and not image.image_url.startswith('http'):
+                        image_path = image.image_url.replace('/product_images/', '')
+                    
+                    # Delete database record
+                    db.session.delete(image)
+                    db.session.flush()
+                    
+                    # Delete file from filesystem
+                    if image_path:
+                        try:
+                            file_path = os.path.join(UPLOAD_FOLDER, image_path)
+                            if os.path.exists(file_path):
+                                os.remove(file_path)
+                        except Exception as e:
+                            # Log error but continue
+                            print(f"Error deleting file {image_path}: {str(e)}")
+        
+        # 5. Upload new images
+        for file in files:
+            if file and file.filename:
+                image_url = save_image(file)
+                
+                if image_url:
+                    # Create new product image record
+                    new_image = ProductImage(
+                        product_id=product_id,
+                        image_url=image_url
+                    )
+                    db.session.add(new_image)
+        
+        # 6. Process color images
+        for color_id, color_files in color_images.items():
+            # For new colors, we need to map temp_id to actual color_id
+            if not color_id.isdigit():
+                # Find the corresponding color by temp_id
+                for color_item in data.get('colors', []):
+                    if str(color_item.get('temp_id')) == color_id and 'color_id' in color_item:
+                        actual_color_id = color_item['color_id']
+                        for file in color_files:
+                            if file and file.filename:
+                                image_url = save_image(file)
+                                if image_url:
+                                    new_image = ProductImage(
+                                        product_id=product_id,
+                                        color_id=actual_color_id,
+                                        image_url=image_url
+                                    )
+                                    db.session.add(new_image)
+            else:
+                # For existing colors, use the color_id directly
+                for file in color_files:
+                    if file and file.filename:
+                        image_url = save_image(file)
+                        if image_url:
+                            new_image = ProductImage(
+                                product_id=product_id,
+                                color_id=int(color_id),
+                                image_url=image_url
+                            )
+                            db.session.add(new_image)
+        
+        # 7. Process models if needed
+        if 'models' in data:
+            models_data = data['models']
+            
+            # Handle model updates and additions
+            existing_model_ids = {model.model_id for model in product.models}
+            processed_model_ids = set()
+            
+            for model_item in models_data:
+                model_id = model_item.get('model_id')
+                
+                if model_id and model_id in existing_model_ids:
+                    # Update existing model
+                    model = ProductModel.query.get(model_id)
+                    model.name = model_item.get('name', model.name)
+                    model.description = model_item.get('description', model.description)
+                    processed_model_ids.add(model_id)
+                elif not model_id:
+                    # Add new model
+                    new_model = ProductModel(
+                        product_id=product_id,
+                        name=model_item.get('name'),
+                        description=model_item.get('description')
+                    )
+                    db.session.add(new_model)
+            
+            # Delete models not included in the update
+            models_to_delete = existing_model_ids - processed_model_ids
+            for model_id in models_to_delete:
+                model = ProductModel.query.get(model_id)
+                db.session.delete(model)
+        
+        # Commit all changes
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Product updated successfully',
+            'product_id': product.product_id
+        }), 200
+    
+    except Exception as e:
+        # Rollback in case of any error
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
