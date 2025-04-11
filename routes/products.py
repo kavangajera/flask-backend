@@ -3,11 +3,14 @@ from venv import logger
 from flask import Blueprint, request, jsonify, session
 from werkzeug.utils import secure_filename
 from extensions import db
+from models.cart import CartItem
 from models.product import Product, ProductImage, ProductModel, ProductColor, ModelSpecification
 from models.category import Category, Subcategory
 from uuid import uuid4
 from middlewares.auth import token_required
 import json
+
+from models.wishlist import WishlistItem
 
 products_bp = Blueprint('products', __name__)
 
@@ -567,6 +570,7 @@ from datetime import datetime
 
 # Update an entire product (PUT)
 @products_bp.route('/<int:product_id>', methods=['PUT'])
+@token_required(roles=['admin'])
 def update_product(product_id):
     product = Product.query.get_or_404(product_id)
     data = request.form.to_dict() if request.form else request.json
@@ -616,6 +620,7 @@ def partially_update_product(product_id):
 
 # Delete a product
 @products_bp.route('/<int:product_id>', methods=['DELETE'])
+@token_required(roles=['admin'])
 def delete_product(product_id):
     product = Product.query.get_or_404(product_id)
     
@@ -626,6 +631,8 @@ def delete_product(product_id):
             image_paths.append(image.image_url.replace('/product_images/', ''))
     
     try:
+        CartItem.query.filter_by(product_id=product_id).delete()
+        WishlistItem.query.filter_by(product_id=product_id).delete()
         # Delete product from database (cascade will handle related records)
         db.session.delete(product)
         db.session.commit()
@@ -649,6 +656,7 @@ def delete_product(product_id):
 
 # Add new product image
 @products_bp.route('/<int:product_id>/images', methods=['POST'])
+@token_required(roles=['admin'])
 def add_product_image(product_id):
     product = Product.query.get_or_404(product_id)
     
@@ -687,6 +695,7 @@ def add_product_image(product_id):
 
 # Update product image
 @products_bp.route('/<int:product_id>/images/<int:image_id>', methods=['PUT'])
+@token_required(roles=['admin'])
 def update_product_image(product_id, image_id):
     image = ProductImage.query.get_or_404(image_id)
     if image.product_id != product_id:
@@ -731,6 +740,7 @@ def update_product_image(product_id, image_id):
 
 # Delete product image
 @products_bp.route('/<int:product_id>/images/<int:image_id>', methods=['DELETE'])
+@token_required(roles=['admin'])
 def delete_product_image(product_id, image_id):
     image = ProductImage.query.get_or_404(image_id)
     if image.product_id != product_id:
@@ -764,6 +774,7 @@ def delete_product_image(product_id, image_id):
 
 # Add new product model
 @products_bp.route('/<int:product_id>/models', methods=['POST'])
+@token_required(roles=['admin'])
 def add_product_model(product_id):
     product = Product.query.get_or_404(product_id)
     data = request.form.to_dict() if request.form else request.json
@@ -784,6 +795,7 @@ def add_product_model(product_id):
 
 # Update product model
 @products_bp.route('/<int:product_id>/models/<int:model_id>', methods=['PUT'])
+@token_required(roles=['admin'])
 def update_product_model(product_id, model_id):
     model = ProductModel.query.get_or_404(model_id)
     if model.product_id != product_id:
@@ -803,6 +815,7 @@ def update_product_model(product_id, model_id):
 
 # Delete product model
 @products_bp.route('/<int:product_id>/models/<int:model_id>', methods=['DELETE'])
+@token_required(roles=['admin'])
 def delete_product_model(product_id, model_id):
     model = ProductModel.query.get_or_404(model_id)
     if model.product_id != product_id:
@@ -820,6 +833,7 @@ def delete_product_model(product_id, model_id):
 
 # Add new product color
 @products_bp.route('/<int:product_id>/colors', methods=['POST'])
+@token_required(roles=['admin'])
 def add_product_color(product_id):
     product = Product.query.get_or_404(product_id)
     data = request.form.to_dict() if request.form else request.json
@@ -844,6 +858,7 @@ def add_product_color(product_id):
 
 # Update product color
 @products_bp.route('/<int:product_id>/colors/<int:color_id>', methods=['PUT'])
+@token_required(roles=['admin'])
 def update_product_color(product_id, color_id):
     color = ProductColor.query.get_or_404(color_id)
     if color.product_id != product_id:
@@ -867,6 +882,7 @@ def update_product_color(product_id, color_id):
 
 # Partially update product color (specifically for stock update)
 @products_bp.route('/<int:product_id>/colors/<int:color_id>', methods=['PATCH'])
+@token_required(roles=['admin'])
 def partially_update_product_color(product_id, color_id):
     color = ProductColor.query.get_or_404(color_id)
     if color.product_id != product_id:
@@ -896,6 +912,7 @@ def partially_update_product_color(product_id, color_id):
 
 # Delete product color
 @products_bp.route('/<int:product_id>/colors/<int:color_id>', methods=['DELETE'])
+@token_required(roles=['admin'])
 def delete_product_color(product_id, color_id):
     color = ProductColor.query.get_or_404(color_id)
     if color.product_id != product_id:
@@ -913,6 +930,7 @@ def delete_product_color(product_id, color_id):
 
 # Add new product specification
 @products_bp.route('/<int:product_id>/specifications', methods=['POST'])
+@token_required(roles=['admin'])
 def add_product_specification(product_id):
     product = Product.query.get_or_404(product_id)
     data = request.form.to_dict() if request.form else request.json
@@ -933,6 +951,7 @@ def add_product_specification(product_id):
 
 # Update product specification
 @products_bp.route('/<int:product_id>/specifications/<int:spec_id>', methods=['PUT'])
+@token_required(roles=['admin'])
 def update_product_specification(product_id, spec_id):
     spec = ModelSpecification.query.get_or_404(spec_id)
     if spec.product_id != product_id:
@@ -952,6 +971,7 @@ def update_product_specification(product_id, spec_id):
 
 # Delete product specification
 @products_bp.route('/<int:product_id>/specifications/<int:spec_id>', methods=['DELETE'])
+@token_required(roles=['admin'])
 def delete_product_specification(product_id, spec_id):
     spec = ModelSpecification.query.get_or_404(spec_id)
     if spec.product_id != product_id:
@@ -969,6 +989,7 @@ def delete_product_specification(product_id, spec_id):
 
 # Add new model specification
 @products_bp.route('/<int:product_id>/models/<int:model_id>/specifications', methods=['POST'])
+@token_required(roles=['admin'])
 def add_model_specification(product_id, model_id):
     model = ProductModel.query.get_or_404(model_id)
     if model.product_id != product_id:
@@ -992,6 +1013,7 @@ def add_model_specification(product_id, model_id):
 
 # Update model specification
 @products_bp.route('/<int:product_id>/models/<int:model_id>/specifications/<int:spec_id>', methods=['PUT'])
+@token_required(roles=['admin'])
 def update_model_specification(product_id, model_id, spec_id):
     model = ProductModel.query.get_or_404(model_id)
     if model.product_id != product_id:
@@ -1015,6 +1037,7 @@ def update_model_specification(product_id, model_id, spec_id):
 
 # Delete model specification
 @products_bp.route('/<int:product_id>/models/<int:model_id>/specifications/<int:spec_id>', methods=['DELETE'])
+@token_required(roles=['admin'])
 def delete_model_specification(product_id, model_id, spec_id):
     model = ProductModel.query.get_or_404(model_id)
     if model.product_id != product_id:
@@ -1034,6 +1057,7 @@ def delete_model_specification(product_id, model_id, spec_id):
 
 # Batch update product rating
 @products_bp.route('/<int:product_id>/rating', methods=['PATCH'])
+@token_required(roles=['admin'])
 def update_product_rating(product_id):
     product = Product.query.get_or_404(product_id)
     data = request.form.to_dict() if request.form else request.json
@@ -1100,6 +1124,7 @@ def get_product_status():
 
 
 @products_bp.route('/<int:product_id>/update-all', methods=['POST'])
+@token_required(roles=['admin'])
 def update_all_product_data(product_id):
     """Combined endpoint to update all product data in a single request"""
     product = Product.query.get_or_404(product_id)
