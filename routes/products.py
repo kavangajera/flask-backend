@@ -489,10 +489,10 @@ def add_product():
         if not hsn_id and request.form.get('new_hsn'):
             new_hsn = HSN(
                 hsn_code=request.form.get('new_hsn_code'),
-                hsn_id=hsn_id
             )
             db.session.add(new_hsn)
             db.session.commit()
+            hsn_id=new_hsn.hsn_id
         
         # Validate required fields
         print(name, description, category_id, product_type)
