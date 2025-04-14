@@ -486,6 +486,14 @@ def add_product():
             db.session.commit()  # Get the ID without committing
             subcategory_id = new_subcategory.subcategory_id
         
+        if not hsn_id and request.form.get('new_hsn'):
+            new_hsn = HSN(
+                hsn_code=request.form.get('new_hsn_code'),
+                hsn_id=hsn_id
+            )
+            db.session.add(new_hsn)
+            db.session.commit()
+        
         # Validate required fields
         print(name, description, category_id, product_type)
         if not all([name, description, category_id, product_type]):
@@ -846,6 +854,7 @@ def update_product(product_id):
     product.description = data.get('description', product.description)
     product.category_id = data.get('category_id', product.category_id)
     product.subcategory_id = data.get('subcategory_id', product.subcategory_id)
+    product.hsn_id = data.get('hsn_id', product.hsn_id)
     product.product_type = data.get('product_type', product.product_type)
     product.updated_at = datetime.utcnow()
     
@@ -871,9 +880,11 @@ def partially_update_product(product_id):
         product.category_id = data['category_id']
     if 'subcategory_id' in data:
         product.subcategory_id = data['subcategory_id']
+    if 'hsn_id' in data:
+        product.hsn_id = data['hsn_id']
     if 'product_type' in data:
         product.product_type = data['product_type']
-  
+    
     
     product.updated_at = datetime.utcnow()
     
