@@ -11,7 +11,7 @@ class Category(db.Model):
     image_url = db.Column(db.String(255), nullable=False)
     # Relationships
     subcategories = db.relationship('Subcategory', backref='category', lazy=True, cascade="all, delete-orphan")
-    products = db.relationship('Product', backref='main_category', lazy=True)
+    products = db.relationship('Product', backref='main_category', lazy=True, cascade="all, delete-orphan")
 
 class Subcategory(db.Model):
     __tablename__ = 'subcategories'
