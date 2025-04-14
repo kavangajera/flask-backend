@@ -34,7 +34,7 @@ def list_products():
                 'description': product.description,
                 'category': product.main_category.name if product.main_category else None,
                 'subcategory': product.sub_category.name if product.sub_category else None,
-                'hsn': product.hsn.hsn_code,
+                'hsn': product.hsn.hsn_code if product.hsn else None,
                 'product_type': product.product_type,
                 'rating': product.rating,
                 'raters': product.raters,
@@ -205,7 +205,7 @@ def get_hsn():
         for hsn in hsn_list:
             result.append({
                 'hsn_id': hsn.hsn_id,
-                'hsn_code': hsn.hsn_code,
+                'hsn_code': hsn.hsn_code if hsn else None,
                 'description': hsn.description
             })
         
@@ -741,7 +741,7 @@ def get_products_by_category(category_id):
                 'description': product.description,
                 'category': product.main_category.name if product.main_category else None,
                 'subcategory': product.sub_category.name if product.sub_category else None,
-                'hsn': product.hsn.hsn_code,
+                'hsn': product.hsn.hsn_code if product.hsn else None,
                 'product_type': product.product_type,
                 'rating': product.rating,
                 'raters': product.raters,
