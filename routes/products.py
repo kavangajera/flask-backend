@@ -39,6 +39,8 @@ def list_products():
                 'rating': product.rating,
                 'raters': product.raters,
                 'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in product.images],
+                'specifications': [{'spec_id': s.spec_id, 'key': s.key, 'value': s.value} for s in product.specifications],
+
             }
             
             # Add models for all product types
@@ -91,6 +93,8 @@ def list_products():
     except Exception as e:
         logger.error(f"Error listing products: {str(e)}")
         return jsonify({'error': str(e)}), 500
+    
+
 
 # Get product details by product_id
 @products_bp.route('/product/<int:product_id>', methods=['GET'])
@@ -117,6 +121,7 @@ def product_detail(product_id):
             'rating': product.rating,
             'raters': product.raters,
             'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in product.images],
+            'specifications': [{'spec_id': s.spec_id, 'key': s.key, 'value': s.value} for s in product.specifications],
         }
         
         # Add models for all product types
