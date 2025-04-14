@@ -109,6 +109,7 @@ class Product(db.Model):
     description = db.Column(db.Text, nullable=False)
     category_id = db.Column(db.Integer, db.ForeignKey('categories.category_id'), nullable=False)
     subcategory_id = db.Column(db.Integer, db.ForeignKey('subcategories.subcategory_id'), nullable=True)
+    hsn_id = db.Column(db.Integer, db.ForeignKey('hsn.hsn_id'), nullable=True)
     product_type = db.Column(db.String(20), nullable=False)  # 'single' or 'variable'
     rating = db.Column(db.Float, default=0)
     raters = db.Column(db.Integer, default=0)

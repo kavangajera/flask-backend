@@ -6,6 +6,7 @@ from extensions import db
 from models.cart import CartItem
 from models.product import Product, ProductImage, ProductModel, ProductColor, ModelSpecification, ProductSpecification
 from models.category import Category, Subcategory
+from models.hsn import HSN
 from uuid import uuid4
 from middlewares.auth import token_required
 import json
@@ -21,7 +22,8 @@ def list_products():
         products = Product.query.options(
             db.joinedload(Product.images),
             db.joinedload(Product.main_category),
-            db.joinedload(Product.sub_category)
+            db.joinedload(Product.sub_category),
+            db.joinedload(Product.hsn),
         ).all() 
         
         products_list = []
@@ -32,6 +34,7 @@ def list_products():
                 'description': product.description,
                 'category': product.main_category.name if product.main_category else None,
                 'subcategory': product.sub_category.name if product.sub_category else None,
+                'hsn': product.hsn.hsn_code,
                 'product_type': product.product_type,
                 'rating': product.rating,
                 'raters': product.raters,
@@ -97,6 +100,7 @@ def product_detail(product_id):
             db.joinedload(Product.images),
             db.joinedload(Product.main_category),
             db.joinedload(Product.sub_category),
+            db.joinedload(Product.hsn),
             db.joinedload(Product.models).joinedload(ProductModel.colors).joinedload(ProductColor.images),
             db.joinedload(Product.models).joinedload(ProductModel.specifications),
             db.joinedload(Product.colors).joinedload(ProductColor.images)
@@ -108,6 +112,7 @@ def product_detail(product_id):
             'description': product.description,
             'category': product.main_category.name if product.main_category else None,
             'subcategory': product.sub_category.name if product.sub_category else None,
+            'hsn_id': product.hsn.hsn_code if product.hsn else None,
             'product_type': product.product_type,
             'rating': product.rating,
             'raters': product.raters,
@@ -190,6 +195,26 @@ def get_categories():
     except Exception as e:
         logger.error(f"Error getting categories: {str(e)}")
         return jsonify({'error': str(e)}), 500
+    
+@products_bp.route('/hsn', methods=['GET'])
+def get_hsn():
+    try:
+        hsn_list = HSN.query.all()
+        result = []
+        
+        for hsn in hsn_list:
+            result.append({
+                'hsn_id': hsn.hsn_id,
+                'hsn_code': hsn.hsn_code,
+                'description': hsn.description
+            })
+        
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Error getting HSN: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+    
+
 
 UPLOAD_FOLDER = '/var/www/flask-backend/static/product_images'
 ALLOWED_EXTENSIONS = {
@@ -439,6 +464,7 @@ def add_product():
         # Handle category and subcategory
         category_id = request.form.get('category_id')
         subcategory_id = request.form.get('subcategory_id')
+        hsn_id = request.form.get('hsn_id')
         
         # Check if we need to create a new category
         if not category_id and request.form.get('new_category'):
@@ -700,7 +726,8 @@ def get_products_by_category(category_id):
         products = Product.query.options(
             db.joinedload(Product.images),
             db.joinedload(Product.main_category),
-            db.joinedload(Product.sub_category)
+            db.joinedload(Product.sub_category),
+            db.joinedload(Product.hsn),
         ).filter(Product.category_id == category_id).all()
         
         if not products:
@@ -714,6 +741,7 @@ def get_products_by_category(category_id):
                 'description': product.description,
                 'category': product.main_category.name if product.main_category else None,
                 'subcategory': product.sub_category.name if product.sub_category else None,
+                'hsn': product.hsn.hsn_code,
                 'product_type': product.product_type,
                 'rating': product.rating,
                 'raters': product.raters,

@@ -88,6 +88,7 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
 from datetime import timedelta
+
 from extensions import db
 from routes.signup import signup_bp
 from routes.login import login_bp, setup_google_oauth
@@ -103,10 +104,18 @@ from models.customer import Customer
 from models.product import Product, ProductImage
 from models.order import OrderHistory, OrderHistoryItem
 from models.cart import Cart, CartItem
-
+from models.wishlist import Wishlist, WishlistItem
+from models.category import Category, Subcategory
+from models.product import ProductModel, ProductColor, ModelSpecification
+from models.address import Address
+from models.state import State
+from models.hsn import HSN
 from dotenv import load_dotenv
 import os
 import secrets
+from flask_migrate import Migrate
+
+
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -143,7 +152,8 @@ app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=1)
 
 # Initialize extensions
 db.init_app(app)
-
+# After db.init_app(app)
+migrate = Migrate(app, db)
 # Initialize Google OAuth
 setup_google_oauth(app)
 
