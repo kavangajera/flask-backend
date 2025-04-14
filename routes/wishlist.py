@@ -25,7 +25,6 @@ def add_item_to_wishlist():
     product_id = data.get('product_id')
     model_id = data.get('model_id')
     color_id = data.get('color_id')
-    spec_id = data.get('spec_id')
     
     # Fetch the product to check if it exists
     product = Product.query.get(product_id)
@@ -51,7 +50,7 @@ def add_item_to_wishlist():
         product_id=product_id,
         model_id=model_id,
         color_id=color_id,
-        spec_id=spec_id
+        # spec_id=spec_id
     ).first()
     
     if existing_item:
@@ -68,7 +67,7 @@ def add_item_to_wishlist():
             product_id=product_id,
             model_id=model_id,
             color_id=color_id,
-            spec_id=spec_id
+            # spec_id=spec_id
         )
         db.session.add(wishlist_item)
     
@@ -96,7 +95,7 @@ def delete_item_from_wishlist():
     product_id = data.get('product_id')
     model_id = data.get('model_id')
     color_id = data.get('color_id')
-    spec_id = data.get('spec_id')
+    # spec_id = data.get('spec_id')
     
     # Check if the user has a wishlist
     wishlist = Wishlist.query.filter_by(customer_id=request.current_user.customer_id).first()
@@ -114,8 +113,8 @@ def delete_item_from_wishlist():
         query = query.filter_by(model_id=model_id)
     if color_id is not None:
         query = query.filter_by(color_id=color_id)
-    if spec_id is not None:
-        query = query.filter_by(spec_id=spec_id)
+    # if spec_id is not None:
+    #     query = query.filter_by(spec_id=spec_id)
     
     wishlist_item = query.first()
     
