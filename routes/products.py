@@ -133,7 +133,7 @@ def product_detail(product_id):
                 'name': model.name,
                 'description': model.description,
                 'colors': [],
-                'specifications': [{'spec_id': s.spec_id, 'key': s.key, 'value': s.value} for s in product.specifications],
+                'specifications': [{'spec_id': s.spec_id, 'key': s.key, 'value': s.value} for s in model.specifications],
             }
             
             for color in model.colors:
@@ -660,6 +660,31 @@ def add_product():
         return jsonify({'message': f'An error occurred while adding the product: {str(e)}'}), 500
 
 
+@products_bp.route('/hsn/add', methods=['POST'])
+@token_required(roles=['admin'])
+def add_hsn():
+    try:
+        hsn_code = request.form.get('hsn_code')
+        description = request.form.get('description')
+
+        if not hsn_code or not description:
+            return jsonify({'message': 'HSN code and description are required'}), 400
+
+        new_hsn = HSN(hsn_code=hsn_code, description=description)
+        db.session.add(new_hsn)
+        db.session.commit()
+
+        return jsonify({
+            'message': 'HSN added successfully!',
+            'hsn_id': new_hsn.hsn_id,
+            'hsn_code': new_hsn.hsn_code,
+            'description': new_hsn.description
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error adding HSN: {str(e)}")
+        return jsonify({'message': 'An error occurred while adding the HSN'}), 500
 
 @products_bp.route('/category/add', methods=['POST'])
 @token_required(roles=['admin'])
