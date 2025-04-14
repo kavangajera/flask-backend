@@ -244,6 +244,12 @@ def save_image(image_file):
         return f'/product_images/{filename}'
     return None
 
+from flask import send_from_directory
+
+@products_bp.route('/product_images/<path:filename>')
+def serve_product_image(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
+
 # @products_bp.route('/product/add', methods=['POST'])
 # @token_required(roles=['admin'])
 # def add_product():
