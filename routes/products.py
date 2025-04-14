@@ -133,9 +133,7 @@ def product_detail(product_id):
                 'name': model.name,
                 'description': model.description,
                 'colors': [],
-                'specifications': [
-                    {'key': spec.key, 'value': spec.value} for spec in model.specifications
-                ]
+                'specifications': [{'spec_id': s.spec_id, 'key': s.key, 'value': s.value} for s in product.specifications],
             }
             
             for color in model.colors:
