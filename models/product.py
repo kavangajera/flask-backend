@@ -102,7 +102,7 @@ from extensions import db
 from datetime import datetime
 
 class Product(db.Model):
-    _tablename_ = 'products'
+    __tablename__ = 'products'
     
     product_id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
@@ -125,7 +125,7 @@ class Product(db.Model):
     specifications = db.relationship('ProductSpecification', backref='product', lazy=True, cascade="all, delete-orphan")
 
 class ProductImage(db.Model):
-    _tablename_ = 'product_images'
+    __tablename__ = 'product_images'
     
     image_id = db.Column(db.Integer, primary_key=True)
     product_id = db.Column(db.Integer, db.ForeignKey('products.product_id'), nullable=True)
@@ -133,7 +133,7 @@ class ProductImage(db.Model):
     image_url = db.Column(db.String(255), nullable=False)
 
 class ProductModel(db.Model):
-    _tablename_ = 'product_models'
+    __tablename__ = 'product_models'
     
     model_id = db.Column(db.Integer, primary_key=True)
     product_id = db.Column(db.Integer, db.ForeignKey('products.product_id'), nullable=False)
@@ -145,7 +145,7 @@ class ProductModel(db.Model):
     specifications = db.relationship('ModelSpecification', backref='model', lazy=True, cascade="all, delete-orphan")
 
 class ProductColor(db.Model):
-    _tablename_ = 'product_colors'
+    __tablename__ = 'product_colors'
     
     color_id = db.Column(db.Integer, primary_key=True)
     product_id = db.Column(db.Integer, db.ForeignKey('products.product_id'), nullable=True)
@@ -159,7 +159,7 @@ class ProductColor(db.Model):
     images = db.relationship('ProductImage', backref='color', lazy=True, cascade="all, delete-orphan")
 
 class ProductSpecification(db.Model):
-    _tablename_ = 'product_specifications'
+    __tablename__ = 'product_specifications'
     
     spec_id = db.Column(db.Integer, primary_key=True)
     product_id = db.Column(db.Integer, db.ForeignKey('products.product_id'), nullable=False)
@@ -167,7 +167,7 @@ class ProductSpecification(db.Model):
     value = db.Column(db.String(255), nullable=False)
 
 class ModelSpecification(db.Model):
-    _tablename_ = 'model_specifications'
+    __tablename__ = 'model_specifications'
     
     spec_id = db.Column(db.Integer, primary_key=True)
     model_id = db.Column(db.Integer, db.ForeignKey('product_models.model_id'), nullable=False)
