@@ -4,7 +4,7 @@ class HSN(db.Model):
     __tablename__ = 'hsn'
     
     hsn_id = db.Column(db.Integer, primary_key=True,auto_increment=True)
-    hsn_code = db.Column(db.String(15), nullable=True, unique=True),
+    hsn_code = db.Column(db.String(15), nullable=True, unique=True)
     hsn_description = db.Column(db.String(255), nullable=True)
     gst_rate = db.Column(db.Numeric(10, 2), nullable=True)
     
