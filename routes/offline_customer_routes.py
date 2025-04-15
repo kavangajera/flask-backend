@@ -59,11 +59,21 @@ def create_offline_customer():
 @offline_customer_bp.route('/offline-customers', methods=['GET'])
 @token_required(roles=['admin'])
 def get_offline_customers():
-    
-        
     customers = OfflineCustomer.query.all()
-    return jsonify([customer.get_dict() for customer in customers])
-
+    result = []
+    for customer in customers:
+        customer_data = customer.get_dict()
+        addresses = [{
+            'address_id': addr.address_id,
+            'street': addr.street,
+            'city': addr.city,
+            'state': addr.state,
+            'pincode': addr.pincode,
+            'is_default': addr.is_default
+        } for addr in customer.addresses]
+        customer_data['addresses'] = addresses
+        result.append(customer_data)
+    return jsonify(result)
 # Read (Get one)
 @offline_customer_bp.route('/offline-customers/<int:customer_id>', methods=['GET'])
 @token_required(roles=['admin'])
@@ -71,7 +81,25 @@ def get_offline_customer(customer_id):
     
         
     customer = OfflineCustomer.query.get_or_404(customer_id)
-    return jsonify(customer.get_dict())
+    customer_data = {
+        'customer_id': customer.customer_id,
+        'name': customer.name,
+        'mobile': customer.mobile,
+        'email': customer.email,
+        'role': customer.role,
+        'google_id': customer.google_id
+    }
+   
+    addresses = [{
+        'address_id': addr.address_id,
+        'street': addr.street,
+        'city': addr.city,
+        'state': addr.state,
+        'pincode': addr.pincode,
+        'is_default': addr.is_default
+    } for addr in customer.addresses]
+    customer_data['addresses'] = addresses
+    return jsonify(customer_data)
 
 # Update
 @offline_customer_bp.route('/offline-customers/<int:customer_id>', methods=['PUT'])
