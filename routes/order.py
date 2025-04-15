@@ -455,11 +455,15 @@
 #     return jsonify(order_dict) 
 
 from flask import Blueprint, request, jsonify
-from models.order import OrderHistory, OrderHistoryItem
+from models.order import Order, OrderItem
+from models.offline_customer import OfflineCustomer
 from models.cart import Cart,CartItem
 from models.product import Product,ProductColor,ProductModel,ModelSpecification
+from models.address import Address
 import decimal
 from extensions import db
+from datetime import datetime
+
 from middlewares.auth import token_required
 
 order_bp = Blueprint('order', __name__)
@@ -875,114 +879,116 @@ def clear_cart():
     }), 200
 
 
+order_bp = Blueprint('order', __name__)
+
 @order_bp.route('/orders', methods=['GET'])
-@token_required(roles=['customer'])
-def list_orders():
-    orders = OrderHistory.query.filter_by(customer_id=request.current_user.customer_id).all()
-    orders_list = []
-    for order in orders:
-        order_dict = {
-            'order_id': order.order_id,
-            'customer_id': order.customer_id,
-            'address': order.address,
-            'date_time': order.date_time.isoformat() if order.date_time else None,
-            'num_products': order.num_products,
-            'total_price': float(order.total_price) if order.total_price else None,
-            'delivery_charge': float(order.delivery_charge) if order.delivery_charge else None,
-            'final_payment': float(order.final_payment) if order.final_payment else None,
-            'items': []
-        }
-        for item in order.items:
-            item_dict = {
-                'item_id': item.item_id,
-                'product_id': item.product_id,
-                'quantity': item.quantity,
-                'product_price': float(item.product_price) if item.product_price else None
-            }
-            order_dict['items'].append(item_dict)
-        orders_list.append(order_dict)
-    return jsonify(orders_list)
-
-@order_bp.route('/order/create', methods=['POST'])
-@token_required(roles=['customer'])
-def create_order():
-    data = request.get_json()
-    current_user = request.current_user
-    if not data or 'items' not in data:
-        return jsonify({'error': 'No items provided'}), 400
-    
-    try:
-        # Calculate order totals
-        total_price = 0
-        num_products = len(data['items'])
-        
-        # Create new order
-        new_order = OrderHistory(
-            customer_id=request.current_user.customer_id,
-            address=data.get('address'),
-            num_products=num_products,
-            total_price=0,  # Will be updated after items
-            delivery_charge=data.get('delivery_charge', 0),
-            final_payment=0  # Will be updated after items
-        )
-        
-        db.session.add(new_order)
-        db.session.flush()  # Get the order_id
-        
-        # Add order items
-        for item_data in data['items']:
-            item = OrderHistoryItem(
-                order_id=new_order.order_id,
-                product_id=item_data['product_id'],
-                quantity=item_data['quantity'],
-                product_price=item_data['product_price']
-            )
-            db.session.add(item)
-            total_price += float(item_data['product_price']) * item_data['quantity']
-        
-        # Update order totals
-        new_order.total_price = total_price
-        new_order.final_payment = total_price + float(new_order.delivery_charge or 0)
-        
-        db.session.commit()
-        
-        return jsonify({
-            'message': 'Order created successfully',
-            'order_id': new_order.order_id
-        }), 201
-        
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 400
-
-@order_bp.route('/order/<int:order_id>', methods=['GET'])
-@token_required(roles=['customer'])
-def get_order(order_id):
-    current_user = request.current_user
-    order = OrderHistory.query.filter_by(
-        order_id=order_id,
-        customer_id=request.current_user.customer_id
-    ).first_or_404()
-    
-    order_dict = {
+def get_orders():
+    orders = Order.query.all()
+    return jsonify([{
         'order_id': order.order_id,
         'customer_id': order.customer_id,
-        'address': order.address,
-        'date_time': order.date_time.isoformat() if order.date_time else None,
-        'num_products': order.num_products,
-        'total_price': float(order.total_price) if order.total_price else None,
-        'delivery_charge': float(order.delivery_charge) if order.delivery_charge else None,
-        'final_payment': float(order.final_payment) if order.final_payment else None,
-        'items': []
-    }
-    
-    for item in order.items:
-        item_dict = {
-            'item_id': item.item_id,
+        'address': {
+            'address_id': order.address.address_id,
+            'street': order.address.street,
+            'city': order.address.city,
+            'state': order.address.state,
+            'pincode': order.address.pincode
+        },
+        'total_items': order.total_items,
+        'subtotal': float(order.subtotal),
+        'discount_percent': float(order.discount_percent),
+        'delivery_charge': float(order.delivery_charge),
+        'tax_percent': float(order.tax_percent),
+        'total_amount': float(order.total_amount),
+        'channel': order.channel,
+        'payment_status': order.payment_status,
+        'fulfillment_status': order.fulfillment_status,
+        'delivery_status': order.delivery_status,
+        'delivery_method': order.delivery_method,
+        'awb_number': order.awb_number,
+        'created_at': order.created_at.isoformat(),
+        'items': [{
             'product_id': item.product_id,
+            'model_id': item.model_id,
+            'color_id': item.color_id,
             'quantity': item.quantity,
-            'product_price': float(item.product_price) if item.product_price else None
-        }
-        order_dict['items'].append(item_dict)
+            'unit_price': float(item.unit_price),
+            'total_price': float(item.total_price)
+        } for item in order.items]
+    } for order in orders])
+
+@order_bp.route('/orders', methods=['POST'])
+def create_order():
+    data = request.get_json()
     
-    return jsonify(order_dict) 
+    # Validate customer
+    customer = OfflineCustomer.query.get(data['customer_id'])
+    if not customer:
+        return jsonify({'error': 'Customer not found'}), 404
+    
+    # Get customer's default address
+    address = Address.query.filter_by(offline_customer_id=data['customer_id']).first()
+    if not address:
+        return jsonify({'error': 'No address found for customer'}), 404
+    
+    # Calculate subtotal and create order items
+    subtotal = 0
+    order_items = []
+    
+    for item in data['items']:
+        product = Product.query.get(item['product_id'])
+        if not product:
+            return jsonify({'error': f'Product {item["product_id"]} not found'}), 404
+            
+        color = ProductColor.query.get(item['color_id']) if item.get('color_id') else None
+        model = ProductModel.query.get(item['model_id']) if item.get('model_id') else None
+        
+        unit_price = color.price if color else product.price
+        total_price = unit_price * item['quantity']
+        subtotal += total_price
+        
+        order_items.append(OrderItem(
+            product_id=item['product_id'],
+            model_id=item.get('model_id'),
+            color_id=item.get('color_id'),
+            quantity=item['quantity'],
+            unit_price=unit_price,
+            total_price=total_price
+        ))
+    
+    # Calculate final amount
+    discount_amount = (subtotal * data['discount_percent']) / 100
+    tax_amount = ((subtotal - discount_amount) * data['tax_percent']) / 100
+    total_amount = subtotal - discount_amount + tax_amount + data['delivery_charge']
+    
+    # Create order
+    order = Order(
+        offline_customer_id=data['customer_id'],
+        address_id=address.address_id,
+        total_items=len(data['items']),
+        subtotal=subtotal,
+        discount_percent=data['discount_percent'],
+        delivery_charge=data['delivery_charge'],
+        tax_percent=data['tax_percent'],
+        total_amount=total_amount,
+        channel=data.get('channel', 'offline'),
+        payment_status=data.get('payment_status', 'paid'),
+        fulfillment_status=data.get('fulfillment_status', False),
+        delivery_status=data.get('delivery_status', 'intransit'),
+        delivery_method=data.get('delivery_method', 'shipping')
+    )
+    
+    db.session.add(order)
+    db.session.flush()  # Get order_id
+    
+    # Add items to order
+    for item in order_items:
+        item.order_id = order.order_id
+        db.session.add(item)
+    
+    db.session.commit()
+    
+    return jsonify({
+        'message': 'Order created successfully',
+        'order_id': order.order_id
+    }), 201

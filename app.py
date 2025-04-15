@@ -95,6 +95,7 @@ from routes.login import login_bp, setup_google_oauth
 from routes.products import products_bp
 from routes.order import order_bp
 from routes.admin_signup import admin_signup_bp
+from routes.offline_customer_routes import offline_customer_bp
 from routes.wishlist import wishlist_bp
 from routes.state import state_bp
 from routes.address import address_bp
@@ -166,6 +167,7 @@ app.register_blueprint(admin_signup_bp)
 app.register_blueprint(wishlist_bp)
 app.register_blueprint(state_bp)
 app.register_blueprint(address_bp)
+app.register_blueprint(offline_customer_bp)
 app.register_blueprint(profile_bp)
 
 
