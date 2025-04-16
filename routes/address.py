@@ -37,6 +37,89 @@ def get_address(address_id):
         'address': address.to_dict()
     })
 
+
+
+
+def is_service_available(pincode):
+    """
+    Check if delivery service is available for the given pincode using Delhivery API
+    
+    Args:
+        pincode (str): The pincode to check
+        
+    Returns:
+        dict: A dictionary with success status and message
+    """
+    import requests
+    
+    if not pincode:
+        return {
+            'success': False,
+            'message': 'Pincode is required'
+        }
+    
+    url = f"https://track.delhivery.com/c/api/pin-codes/json/?filter_codes={pincode}"
+    
+    try:
+        response = requests.get(
+            url,
+            headers={
+                'Authorization': 'e3e340a4a9415a5282e8df1995fef1ceb82062cf',
+                'Content-Type': 'application/json'
+            }
+        )
+        
+        if not response.ok:
+            return {
+                'success': False,
+                'message': f'Failed to check pincode serviceability: {response.reason}'
+            }
+        
+        data = response.json()
+        
+        # Check if delivery_codes array is empty
+        if not data.get('delivery_codes'):
+            return {
+                'success': False,
+                'message': f'Delivery is not available for pincode {pincode}'
+            }
+        
+        pincode_data = data['delivery_codes'][0].get('postal_code')
+        
+        if not pincode_data:
+            return {
+                'success': False,
+                'message': f'Invalid or unsupported pincode {pincode}'
+            }
+        
+        is_prepaid = pincode_data.get('pre_paid') == 'Y'
+        is_cod = pincode_data.get('cod') == 'Y'
+        
+        if is_prepaid or is_cod:
+            return {
+                'success': True,
+                'message': f'Pincode {pincode} is serviceable',
+                'data': {
+                    'prepaid': is_prepaid,
+                    'cod': is_cod,
+                    'city': pincode_data.get('city'),
+                    'state_code': pincode_data.get('state_code')
+                }
+            }
+        else:
+            return {
+                'success': False,
+                'message': f'Delivery is not available for pincode {pincode}'
+            }
+            
+    except Exception as e:
+        return {
+            'success': False,
+            'message': f'Error checking pincode serviceability: {str(e)}'
+        }
+
+
+
 @address_bp.route('/add-address', methods=['POST'])
 @token_required(roles=['customer'])
 def add_address():
@@ -61,6 +144,11 @@ def add_address():
             'message': 'Invalid state selected'
         }), 400
     
+    # Check if pincode is serviceable
+    service_check = is_service_available(data['pincode'])
+    if not service_check['success']:
+        return jsonify(service_check), 400
+    
     # Handle "Use my current location" if latitude and longitude are provided
     latitude = data.get('latitude')
     longitude = data.get('longitude')
@@ -73,7 +161,7 @@ def add_address():
         locality=data['locality'],
         address_line=data['address_line'],
         city=data['city'],
-        state_id=data['state_id'],  # Changed from state to state_id
+        state_id=data['state_id'],
         landmark=data.get('landmark'),
         alternate_phone=data.get('alternate_phone'),
         address_type=data['address_type'],
