@@ -5,6 +5,12 @@ from models.address import Address
 from models.state import State
 import json
 import requests
+from dotenv import load_dotenv
+import os
+load_dotenv()
+
+
+
 
 address_bp = Blueprint('address', __name__)
 
@@ -38,7 +44,7 @@ def get_address(address_id):
     })
 
 
-
+DELHIVERY_KEY = os.getenv("DELHIVERY_KEY")
 
 def is_service_available(pincode):
     """
@@ -64,7 +70,7 @@ def is_service_available(pincode):
         response = requests.get(
             url,
             headers={
-                'Authorization': 'e3e340a4a9415a5282e8df1995fef1ceb82062cf',
+                'Authorization': DELHIVERY_KEY,
                 'Content-Type': 'application/json'
             }
         )
