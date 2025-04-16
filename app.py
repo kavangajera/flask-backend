@@ -103,7 +103,6 @@ from routes.profile import profile_bp
 # Import models
 from models.customer import Customer
 from models.product import Product, ProductImage
-from models.order import OrderHistory, OrderHistoryItem
 from models.cart import Cart, CartItem
 from models.wishlist import Wishlist, WishlistItem
 from models.category import Category, Subcategory

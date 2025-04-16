@@ -11,8 +11,6 @@ offline_customer_bp = Blueprint('offline_customer', __name__)
 @offline_customer_bp.route('/offline-customers', methods=['POST'])
 @token_required(roles=['admin'])
 def create_offline_customer():
-    
-        
     data = request.get_json()
     
     # Create customer
@@ -20,7 +18,6 @@ def create_offline_customer():
         name=data['name'],
         mobile=data.get('mobile'),
         email=data['email'],
-       
     )
     
     db.session.add(new_customer)
@@ -31,11 +28,18 @@ def create_offline_customer():
         address_data = data['address']
         new_address = Address(
             offline_customer_id=new_customer.customer_id,
-            street=address_data['street'],
-            city=address_data['city'],
-            state=address_data['state'],
+            name=address_data['name'],
+            mobile=address_data['mobile'],
             pincode=address_data['pincode'],
-            is_default=address_data.get('is_default', True)  # First address is default by default
+            locality=address_data['locality'],
+            address_line=address_data['address_line'],
+            city=address_data['city'],
+            state_id=address_data['state_id'],
+            landmark=address_data.get('landmark'),
+            alternate_phone=address_data.get('alternate_phone'),
+            address_type=address_data.get('address_type', 'Home'),
+            latitude=address_data.get('latitude'),
+            longitude=address_data.get('longitude')
         )
         db.session.add(new_address)
     
@@ -44,14 +48,7 @@ def create_offline_customer():
     # Get the complete customer data with address
     customer_dict = new_customer.get_dict()
     if 'address' in data:
-        customer_dict['address'] = {
-            'address_id': new_address.address_id,
-            'street': new_address.street,
-            'city': new_address.city,
-            'state': new_address.state,
-            'pincode': new_address.pincode,
-            'is_default': new_address.is_default
-        }
+        customer_dict['address'] = new_address.to_dict()
     
     return jsonify(customer_dict), 201
 
@@ -63,41 +60,18 @@ def get_offline_customers():
     result = []
     for customer in customers:
         customer_data = customer.get_dict()
-        addresses = [{
-            'address_id': addr.address_id,
-            'street': addr.street,
-            'city': addr.city,
-            'state': addr.state,
-            'pincode': addr.pincode,
-            'is_default': addr.is_default
-        } for addr in customer.addresses]
+        addresses = [addr.to_dict() for addr in customer.addresses]
         customer_data['addresses'] = addresses
         result.append(customer_data)
     return jsonify(result)
+
 # Read (Get one)
 @offline_customer_bp.route('/offline-customers/<int:customer_id>', methods=['GET'])
 @token_required(roles=['admin'])
 def get_offline_customer(customer_id):
-    
-        
     customer = OfflineCustomer.query.get_or_404(customer_id)
-    customer_data = {
-        'customer_id': customer.customer_id,
-        'name': customer.name,
-        'mobile': customer.mobile,
-        'email': customer.email,
-        'role': customer.role,
-        'google_id': customer.google_id
-    }
-   
-    addresses = [{
-        'address_id': addr.address_id,
-        'street': addr.street,
-        'city': addr.city,
-        'state': addr.state,
-        'pincode': addr.pincode,
-        'is_default': addr.is_default
-    } for addr in customer.addresses]
+    customer_data = customer.get_dict()
+    addresses = [addr.to_dict() for addr in customer.addresses]
     customer_data['addresses'] = addresses
     return jsonify(customer_data)
 

@@ -889,10 +889,22 @@ def get_orders():
         'customer_id': order.customer_id,
         'address': {
             'address_id': order.address.address_id,
-            'street': order.address.street,
+            'name': order.address.name,
+            'mobile': order.address.mobile,
+            'pincode': order.address.pincode,
+            'locality': order.address.locality,
+            'address_line': order.address.address_line,
             'city': order.address.city,
-            'state': order.address.state,
-            'pincode': order.address.pincode
+            'state': {
+                'state_id': order.address.state.state_id,
+                'name': order.address.state.name,
+                'abbreviation': order.address.state.abbreviation
+            },
+            'landmark': order.address.landmark,
+            'alternate_phone': order.address.alternate_phone,
+            'address_type': order.address.address_type,
+            'latitude': order.address.latitude,
+            'longitude': order.address.longitude
         },
         'total_items': order.total_items,
         'subtotal': float(order.subtotal),
