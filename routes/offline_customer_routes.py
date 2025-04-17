@@ -4,6 +4,7 @@ from models.address import Address
 from extensions import db
 from flask_login import login_required, current_user
 from middlewares.auth import token_required
+from services.pincode_check import is_service_available
 
 offline_customer_bp = Blueprint('offline_customer', __name__)
 
@@ -41,6 +42,12 @@ def create_offline_customer():
             latitude=address_data.get('latitude'),
             longitude=address_data.get('longitude')
         )
+
+        # Check if pincode is serviceable
+        service_check = is_service_available(address_data['pincode'])
+        if not service_check['success']:
+            return jsonify(service_check), 200
+
         db.session.add(new_address)
     
     db.session.commit()
