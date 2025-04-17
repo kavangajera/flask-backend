@@ -892,6 +892,7 @@ def update_product(product_id):
 
 # Partially update a product (PATCH)
 @products_bp.route('/<int:product_id>', methods=['PATCH'])
+@token_required(roles=['admin'])
 def partially_update_product(product_id):
     product = Product.query.get_or_404(product_id)
     data = request.form.to_dict() if request.form else request.json
@@ -1231,6 +1232,7 @@ def delete_product_color(product_id, color_id):
 # ----- Product Specifications Routes -----
 
 @products_bp.route('/<int:product_id>/specifications', methods=['POST'])
+@token_required(roles=['admin'])
 def add_product_specification(product_id):
     product = Product.query.get_or_404(product_id)
     data = request.form.to_dict() if request.form else request.json
@@ -1251,6 +1253,7 @@ def add_product_specification(product_id):
 
 # Update product specification
 @products_bp.route('/<int:product_id>/specifications/<int:spec_id>', methods=['PUT'])
+@token_required(roles=['admin'])
 def update_product_specification(product_id, spec_id):
     spec = ProductSpecification.query.get_or_404(spec_id)
     if spec.product_id != product_id:
@@ -1270,6 +1273,7 @@ def update_product_specification(product_id, spec_id):
 
 # Delete product specification
 @products_bp.route('/<int:product_id>/specifications/<int:spec_id>', methods=['DELETE'])
+@token_required(roles=['admin'])
 def delete_product_specification(product_id, spec_id):
     spec = ProductSpecification.query.get_or_404(spec_id)
     if spec.product_id != product_id:
