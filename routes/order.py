@@ -474,6 +474,7 @@ def get_orders():
     } for order in orders])
 
 @order_bp.route('/orders', methods=['POST'])
+@token_required(roles=['admin'])
 def create_order():
     data = request.get_json()
     
