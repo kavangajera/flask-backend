@@ -548,3 +548,156 @@ def create_order():
         'message': 'Order created successfully',
         'order_id': order.order_id
     }), 201
+
+
+
+@order_bp.route('/order/place-order', methods=['POST'])
+@token_required(roles=['customer'])
+def place_order():
+    data = request.get_json()
+    
+    # Validate required fields
+    required_fields = ['address_id', 'payment_status', 'delivery_method']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({'error': f'Missing required field: {field}'}), 400
+    
+    # Get customer's cart
+    customer_id = request.current_user.customer_id
+    cart = Cart.query.filter_by(customer_id=customer_id).first()
+    
+    if not cart or not cart.items:
+        return jsonify({'error': 'Cart is empty'}), 400
+    
+    # Verify address belongs to customer
+    address = Address.query.get(data['address_id'])
+    if not address or address.customer_id != customer_id:
+        return jsonify({'error': 'Invalid address for this customer'}), 404
+    
+    # Get all items from cart
+    cart_items = CartItem.query.filter_by(cart_id=cart.cart_id).all()
+    if not cart_items:
+        return jsonify({'error': 'No items in cart'}), 400
+    
+    # Verify stock availability for all items
+    for item in cart_items:
+        if item.color_id:
+            color = ProductColor.query.get(item.color_id)
+            if not color:
+                return jsonify({'error': f'Product color not found for item {item.item_id}'}), 404
+            if item.quantity > color.stock_quantity:
+                return jsonify({
+                    'error': f'Not enough stock for product. Only {color.stock_quantity} available.',
+                    'product_id': item.product_id,
+                    'color_id': item.color_id
+                }), 400
+    
+    # Calculate order totals
+    subtotal = float(cart.total_cart_price)
+    discount_percent = data.get('discount_percent', 0)
+    tax_percent = data.get('tax_percent', 0)
+    delivery_charge = data.get('delivery_charge', 0)
+    
+    # Calculate final amount
+    discount_amount = (subtotal * discount_percent) / 100
+    tax_amount = ((subtotal - discount_amount) * tax_percent) / 100
+    total_amount = subtotal - discount_amount + tax_amount + delivery_charge
+    
+    # Create new order
+    order = Order(
+        customer_id=customer_id,
+        address_id=data['address_id'],
+        total_items=len(cart_items),
+        subtotal=subtotal,
+        discount_percent=discount_percent,
+        delivery_charge=delivery_charge,
+        tax_percent=tax_percent,
+        total_amount=total_amount,
+        channel=data.get('channel', 'online'),
+        payment_status=data['payment_status'],
+        fulfillment_status=False,
+        delivery_status='pending',
+        delivery_method=data['delivery_method'],
+        awb_number=data.get('awb_number'),
+        created_at=datetime.now()
+    )
+    
+    db.session.add(order)
+    db.session.flush()  # Get order_id
+    
+    # Create order items from cart items
+    order_items = []
+    for cart_item in cart_items:
+        # Get product and price information
+        product = Product.query.get(cart_item.product_id)
+        if not product:
+            db.session.rollback()
+            return jsonify({'error': f'Product not found: {cart_item.product_id}'}), 404
+        
+        # Determine unit price
+        unit_price = 0
+        if cart_item.color_id:
+            color = ProductColor.query.get(cart_item.color_id)
+            if color:
+                unit_price = color.price
+                
+                # Update stock quantity
+                color.stock_quantity -= cart_item.quantity
+                if color.stock_quantity < 0:
+                    db.session.rollback()
+                    return jsonify({'error': f'Not enough stock for product {product.name}'}), 400
+        else:
+            unit_price = product.base_price
+        
+        # Create order item
+        order_item = OrderItem(
+            order_id=order.order_id,
+            product_id=cart_item.product_id,
+            model_id=cart_item.model_id,
+            color_id=cart_item.color_id,
+            quantity=cart_item.quantity,
+            unit_price=unit_price,
+            total_price=cart_item.total_item_price
+        )
+        
+        order_items.append(order_item)
+        db.session.add(order_item)
+    
+    # Clear cart items
+    for item in cart_items:
+        db.session.delete(item)
+    
+    # Reset cart total
+    cart.total_cart_price = 0
+    
+    try:
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Order placed successfully',
+            'order': {
+                'order_id': order.order_id,
+                'customer_id': customer_id,
+                'total_items': order.total_items,
+                'subtotal': float(order.subtotal),
+                'discount_percent': float(order.discount_percent),
+                'delivery_charge': float(order.delivery_charge),
+                'tax_percent': float(order.tax_percent),
+                'total_amount': float(order.total_amount),
+                'payment_status': order.payment_status,
+                'delivery_method': order.delivery_method,
+                'created_at': order.created_at.isoformat(),
+                'items': [{
+                    'product_id': item.product_id,
+                    'model_id': item.model_id,
+                    'color_id': item.color_id,
+                    'quantity': item.quantity,
+                    'unit_price': float(item.unit_price),
+                    'total_price': float(item.total_price)
+                } for item in order_items]
+            }
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Error creating order: {str(e)}'}), 500
