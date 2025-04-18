@@ -110,6 +110,7 @@ from models.product import ProductModel, ProductColor, ModelSpecification
 from models.address import Address
 from models.state import State
 from models.hsn import HSN
+from models.order import Order, OrderItem
 from dotenv import load_dotenv
 import os
 import secrets

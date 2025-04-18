@@ -64,6 +64,7 @@ def list_products():
                         'stock_quantity': color.stock_quantity,
                         'price': float(color.price),
                         'original_price': float(color.original_price) if color.original_price else None,
+                        'threshold': color.threshold,
                         'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in color.images]
                     }
                     model_dict['colors'].append(color_dict)
@@ -82,6 +83,7 @@ def list_products():
                         'stock_quantity': color.stock_quantity,
                         'price': float(color.price),
                         'original_price': float(color.original_price) if color.original_price else None,
+                        'threshold': color.threshold,
                         'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in color.images]
                     }
                     product_dict['colors'].append(color_dict)
@@ -143,6 +145,7 @@ def product_detail(product_id):
                     'stock_quantity': color.stock_quantity,
                     'price': float(color.price),
                     'original_price': float(color.original_price) if color.original_price else None,
+                    'threshold': color.threshold,
                     'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in color.images]
                 }
                 model_dict['colors'].append(color_dict)
@@ -161,6 +164,7 @@ def product_detail(product_id):
                     'stock_quantity': color.stock_quantity,
                     'price': float(color.price),
                     'original_price': float(color.original_price) if color.original_price else None,
+                    'threshold': color.threshold,
                     'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in color.images]
                 }
                 product_dict['colors'].append(color_dict)
@@ -830,6 +834,7 @@ def get_products_by_category(category_id):
                         'stock_quantity': color.stock_quantity,
                         'price': float(color.price),
                         'original_price': float(color.original_price) if color.original_price else None,
+                        'threshold': color.threshold,
                         'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in color.images]
                     }
                     model_dict['colors'].append(color_dict)
@@ -848,6 +853,7 @@ def get_products_by_category(category_id):
                         'stock_quantity': color.stock_quantity,
                         'price': float(color.price),
                         'original_price': float(color.original_price) if color.original_price else None,
+                        'threshold': color.threshold,
                         'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in color.images]
                     }
                     product_dict['colors'].append(color_dict)
