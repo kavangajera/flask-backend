@@ -1426,3 +1426,145 @@ def get_product_status():
                 })
                 
     return jsonify(results), 200
+
+
+# Update product category
+@products_bp.route('/product/<int:product_id>/category', methods=['PUT'])
+@token_required(roles=['admin'])
+def update_product_category(product_id):
+    try:
+        product = Product.query.get_or_404(product_id)
+        data = request.json
+        
+        category_id = data.get('category_id')
+        if not category_id:
+            return jsonify({'error': 'Category ID is required'}), 400
+            
+        # Verify the category exists
+        category = Category.query.get(category_id)
+        if not category:
+            return jsonify({'error': 'Category not found'}), 404
+            
+        # Update the category
+        product.category_id = category_id
+        # When changing category, reset subcategory if it doesn't belong to the new category
+        if product.subcategory_id:
+            subcategory = Subcategory.query.get(product.subcategory_id)
+            if subcategory and subcategory.category_id != category_id:
+                product.subcategory_id = None
+        
+        product.updated_at = datetime.utcnow()
+        db.session.commit()
+        
+        logger.info(f"Product category updated by admin: {request.current_user.email} - Product ID: {product_id}")
+        
+        return jsonify({
+            'message': 'Product category updated successfully',
+            'product_id': product.product_id,
+            'category_id': product.category_id,
+            'category_name': category.name
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error updating product category: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+# Update product subcategory
+@products_bp.route('/product/<int:product_id>/subcategory', methods=['PUT'])
+@token_required(roles=['admin'])
+def update_product_subcategory(product_id):
+    try:
+        product = Product.query.get_or_404(product_id)
+        data = request.json
+        
+        subcategory_id = data.get('subcategory_id')
+        if subcategory_id is None:  # Allow setting to null/None
+            product.subcategory_id = None
+        else:
+            # Verify the subcategory exists and belongs to the product's category
+            subcategory = Subcategory.query.get(subcategory_id)
+            if not subcategory:
+                return jsonify({'error': 'Subcategory not found'}), 404
+                
+            if subcategory.category_id != product.category_id:
+                return jsonify({'error': 'Subcategory does not belong to the product\'s category'}), 400
+                
+            product.subcategory_id = subcategory_id
+        
+        product.updated_at = datetime.utcnow()
+        db.session.commit()
+        
+        logger.info(f"Product subcategory updated by admin: {request.current_user.email} - Product ID: {product_id}")
+        
+        return jsonify({
+            'message': 'Product subcategory updated successfully',
+            'product_id': product.product_id,
+            'subcategory_id': product.subcategory_id,
+            'subcategory_name': Subcategory.query.get(product.subcategory_id).name if product.subcategory_id else None
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error updating product subcategory: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+# Update both category and subcategory in one request
+@products_bp.route('/product/<int:product_id>/categorization', methods=['PUT'])
+@token_required(roles=['admin'])
+def update_product_categorization(product_id):
+    try:
+        product = Product.query.get_or_404(product_id)
+        data = request.json
+        
+        category_id = data.get('category_id')
+        subcategory_id = data.get('subcategory_id')
+        
+        if not category_id:
+            return jsonify({'error': 'Category ID is required'}), 400
+            
+        # Verify the category exists
+        category = Category.query.get(category_id)
+        if not category:
+            return jsonify({'error': 'Category not found'}), 404
+            
+        # Update the category
+        product.category_id = category_id
+        
+        # Handle subcategory
+        if subcategory_id:
+            # Verify the subcategory exists and belongs to the selected category
+            subcategory = Subcategory.query.get(subcategory_id)
+            if not subcategory:
+                return jsonify({'error': 'Subcategory not found'}), 404
+                
+            if subcategory.category_id != category_id:
+                return jsonify({'error': 'Subcategory does not belong to the selected category'}), 400
+                
+            product.subcategory_id = subcategory_id
+        else:
+            # If no subcategory provided, set to None
+            product.subcategory_id = None
+        
+        product.updated_at = datetime.utcnow()
+        db.session.commit()
+        
+        logger.info(f"Product categorization updated by admin: {request.current_user.email} - Product ID: {product_id}")
+        
+        response = {
+            'message': 'Product categorization updated successfully',
+            'product_id': product.product_id,
+            'category_id': product.category_id,
+            'category_name': category.name,
+            'subcategory_id': product.subcategory_id
+        }
+        
+        if product.subcategory_id:
+            response['subcategory_name'] = Subcategory.query.get(product.subcategory_id).name
+        
+        return jsonify(response), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error updating product categorization: {str(e)}")
+        return jsonify({'error': str(e)}), 500
