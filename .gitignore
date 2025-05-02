@@ -3,4 +3,3 @@ static/
 ecomENV/
 .env
 __pycache__/
-flask_app.wsgi
