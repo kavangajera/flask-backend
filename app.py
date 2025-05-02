@@ -210,5 +210,5 @@ if __name__ == '__main__':
         scheduler.start()
         print("Background Scheduler Started (Every 400 minutes)")  # Properly indented with spaces
     
-    # Run the app hi
+    # Run the app hello
     app.run(host='0.0.0.0', port=5005, debug=True) 
