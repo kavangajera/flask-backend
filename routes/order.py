@@ -484,34 +484,6 @@ def get_orders():
     } for order in orders])
 
 
-def generate_order_id():
-    """
-    Generates order ID in format YYYY(CurrentYear)YY(NextYear)#SequenceNumber
-    Example: For year 2025 → '202526#1', '202526#2', etc.
-    """
-    current_year = datetime.now().year
-    next_year = current_year + 1
-    
-    # Format: Full current year + last 2 digits of next year
-    year_part = f"{current_year}{next_year % 100:02d}"
-    
-    # Find the highest existing sequence number for this year pattern
-    last_order = Order.query.filter(
-        Order.order_id.like(f"{year_part}#%")
-    ).order_by(Order.order_id.desc()).first()
-    
-    if last_order:
-        try:
-            # Extract the number after # and increment
-            last_num = int(last_order.order_id.split('#')[1])
-            sequence_num = last_num + 1
-        except (IndexError, ValueError):
-            # Fallback if format is corrupted
-            sequence_num = 1
-    else:
-        sequence_num = 1
-    
-    return f"{year_part}#{sequence_num}"
 
 
 @order_bp.route('/orders', methods=['POST'])
@@ -586,7 +558,7 @@ def create_order():
     # Add items to order and update stock quantities
     for item_data in order_items:
         order_item = OrderItem(
-            order_id=order.order_id,
+            order_id=order.order_id,  # This will now use the auto-generated order_id from the Order model
             product_id=item_data['product_id'],
             model_id=item_data['model_id'],
             color_id=item_data['color_id'],
@@ -600,11 +572,6 @@ def create_order():
         if item_data['color_id']:
             color = ProductColor.query.get(item_data['color_id'])
             color.stock_quantity -= item_data['quantity']
-            
-            # Optional: Check if stock is below threshold and log it
-            if color.stock_quantity <= color.threshold:
-                # You could log this or trigger notifications
-                print(f"Warning: Product color {color.name} stock is below threshold ({color.stock_quantity}/{color.threshold})")
     
     try:
         db.session.commit()
@@ -671,12 +638,9 @@ def place_order():
     tax_amount = ((subtotal - discount_amount) * tax_percent) / 100
     total_amount = subtotal - discount_amount + tax_amount + delivery_charge
     
-    # Generate new order ID
-    order_id = generate_order_id()
     
     # Create new order with custom ID
     order = Order(
-        order_id=order_id,
         customer_id=customer_id,
         address_id=data['address_id'],
         total_items=len(cart_items),
@@ -695,7 +659,7 @@ def place_order():
     )
     
     db.session.add(order)
-    
+    db.session.flush()
     # Create order items from cart items and order details
     order_items = []
     for cart_item in cart_items:

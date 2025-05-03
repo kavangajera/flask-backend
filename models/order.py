@@ -4,8 +4,12 @@ from extensions import db
 class Order(db.Model):
     __tablename__ = 'orders'
     
-    # order_id = db.Column(db.Integer, primary_key=True)
-    order_id = db.Column(db.String(20), primary_key=True)  # Changed from Integer to String
+    # New columns
+    order_index = db.Column(db.Integer, autoincrement=True, nullable=False, unique=True)
+    
+    # Computed order_id
+    order_id = db.Column(db.String(30), primary_key=True, unique=True)  # Increased length to accommodate date
+
     customer_id = db.Column(db.Integer, db.ForeignKey('customer.customer_id', ondelete='CASCADE'), nullable=True)
     offline_customer_id = db.Column(db.Integer, db.ForeignKey('offline_customer.customer_id', ondelete='CASCADE'), nullable=True)
     address_id = db.Column(db.Integer, db.ForeignKey('address.address_id'), nullable=False)
@@ -30,6 +34,15 @@ class Order(db.Model):
         db.ForeignKeyConstraint(['offline_customer_id'], ['offline_customer.customer_id'], ondelete='CASCADE'),
         db.CheckConstraint('customer_id IS NOT NULL OR offline_customer_id IS NOT NULL', name='check_order_customer_type'),
     )
+    # Computed order_id
+    
+    def generate_order_id(self):
+        date_str = self.created_at.strftime('%d-%m-%Y')
+        return f"{date_str}#{self.order_index}"
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.order_id = self.generate_order_id()
     
     # Relationships
     customer = db.relationship('Customer', back_populates='orders')
