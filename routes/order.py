@@ -107,7 +107,7 @@ def add_item_to_cart():
     product_id = data.get('product_id')
     model_id = data.get('model_id')
     color_id = data.get('color_id')
-    spec_id = data.get('spec_id')
+    # spec_id = data.get('spec_id')
     quantity = data.get('quantity', 1)
     
     # Fetch the product
@@ -152,7 +152,7 @@ def add_item_to_cart():
         product_id=product_id,
         model_id=model_id,
         color_id=color_id,
-        spec_id=spec_id
+        # spec_id=spec_id
     ).first()
     
     if existing_item:
@@ -166,7 +166,7 @@ def add_item_to_cart():
             product_id=product_id,
             model_id=model_id,
             color_id=color_id,
-            spec_id=spec_id,
+            # spec_id=spec_id,
             quantity=quantity,
             total_item_price=total_item_price
         )
@@ -203,7 +203,7 @@ def delete_item_from_cart():
     product_id = data.get('product_id')
     model_id = data.get('model_id')
     color_id = data.get('color_id')
-    spec_id = data.get('spec_id')
+    # spec_id = data.get('spec_id')
     quantity_to_remove = data.get('quantity', 1)
     
     # Check if the user has a cart
@@ -222,8 +222,8 @@ def delete_item_from_cart():
         query = query.filter_by(model_id=model_id)
     if color_id is not None:
         query = query.filter_by(color_id=color_id)
-    if spec_id is not None:
-        query = query.filter_by(spec_id=spec_id)
+    # if spec_id is not None:
+    #     query = query.filter_by(spec_id=spec_id)
     
     cart_item = query.first()
     
@@ -314,7 +314,7 @@ def get_cart_by_customer_id():
             prod_specs = ProductSpecification.query.filter_by(product_id=product.product_id).all()
             for spec in prod_specs:
                 product_specifications.append({
-                    'spec_id': spec.spec_id,
+                    # 'spec_id': spec.spec_id,
                     'key': spec.key,
                     'value': spec.value
                 })
@@ -325,7 +325,7 @@ def get_cart_by_customer_id():
             mod_specs = ModelSpecification.query.filter_by(model_id=model.model_id).all()
             for spec in mod_specs:
                 model_specifications.append({
-                    'spec_id': spec.spec_id,
+                    # 'spec_id': spec.spec_id,
                     'key': spec.key,
                     'value': spec.value
                 })
