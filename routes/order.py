@@ -532,51 +532,6 @@ def create_order():
             'unit_price': unit_price,
             'total_price': total_price
         })
-    
-    # Calculate final amount
-    discount_amount = (subtotal * data['discount_percent']) / 100
-    tax_amount = ((subtotal - discount_amount) * data['tax_percent']) / 100
-    total_amount = subtotal - discount_amount + tax_amount + data['delivery_charge']
-    
-    # Create order
-    order = Order(
-        offline_customer_id=data['customer_id'],
-        address_id=address.address_id,
-        total_items=len(data['items']),
-        subtotal=subtotal,
-        discount_percent=data['discount_percent'],
-        delivery_charge=data['delivery_charge'],
-        tax_percent=data['tax_percent'],
-        total_amount=total_amount,
-        channel=data.get('channel', 'offline'),
-        payment_status=data.get('payment_status', 'paid'),
-        fulfillment_status=data.get('fulfillment_status', False),
-        delivery_status=data.get('delivery_status', 'intransit'),
-        delivery_method=data.get('delivery_method', 'shipping')
-    )
-    
-    db.session.add(order)
-    db.session.flush()  # Get order_id
-    
-    # Add items to order and update stock quantities
-    for item_data in order_items:
-        order_item = OrderItem(
-            order_id=order.order_id,  # This will now use the auto-generated order_id from the Order model
-            product_id=item_data['product_id'],
-            model_id=item_data['model_id'],
-            color_id=item_data['color_id'],
-            quantity=item_data['quantity'],
-            unit_price=item_data['unit_price'],
-            total_price=item_data['total_price']
-        )
-        db.session.add(order_item)
-        
-        # Update stock quantity for the product color
-        if item_data['color_id']:
-            color = ProductColor.query.get(item_data['color_id'])
-            color.stock_quantity -= item_data['quantity']
-    
-    try:
 
         # Keep track of stock updates
         if color:
@@ -588,12 +543,12 @@ def create_order():
     tax_amount = ((subtotal - discount_amount) * data.get('tax_percent', 0)) / 100
     total_amount = subtotal - discount_amount + tax_amount + data.get('delivery_charge', 0)
 
-    order_id=generate_order_id()
+    
 
     try:
         # Create and add order
         order = Order(
-            order_id=order_id,
+            
             offline_customer_id=customer.customer_id,
             address_id=address.address_id,
             total_items=len(order_items),
