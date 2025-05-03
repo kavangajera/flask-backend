@@ -1012,6 +1012,15 @@ def add_to_order():
         if field not in data:
             return jsonify({'error': f'Missing required field: {field}'}), 400
     
+    # Validate quantity is a positive integer
+    try:
+        quantity = int(data['quantity'])
+        if quantity <= 0:
+            return jsonify({'error': 'Quantity must be a positive integer'}), 400
+        data['quantity'] = quantity
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Quantity must be a valid number'}), 400
+    
     # Optional fields with defaults
     model_id = data.get('model_id')
     color_id = data.get('color_id')
@@ -1127,6 +1136,13 @@ def add_to_order():
             if color.stock_quantity < 0:
                 db.session.rollback()
                 return jsonify({'error': f'Not enough stock for product {product.name}'}), 400
+        else:
+            # If we're tracking stock at the product level instead of color level
+            if hasattr(product, 'stock_quantity'):
+                product.stock_quantity -= data['quantity']
+                if product.stock_quantity < 0:
+                    db.session.rollback()
+                    return jsonify({'error': f'Not enough stock for product {product.name}'}), 400
         
         db.session.commit()
         
@@ -1158,4 +1174,3 @@ def add_to_order():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'Error creating order: {str(e)}'}), 500
-
