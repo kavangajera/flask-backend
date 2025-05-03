@@ -314,7 +314,7 @@ def get_cart_by_customer_id():
             prod_specs = ProductSpecification.query.filter_by(product_id=product.product_id).all()
             for spec in prod_specs:
                 product_specifications.append({
-                    # 'spec_id': spec.spec_id,
+                    'spec_id': spec.spec_id,
                     'key': spec.key,
                     'value': spec.value
                 })
@@ -325,7 +325,7 @@ def get_cart_by_customer_id():
             mod_specs = ModelSpecification.query.filter_by(model_id=model.model_id).all()
             for spec in mod_specs:
                 model_specifications.append({
-                    # 'spec_id': spec.spec_id,
+                    'spec_id': spec.spec_id,
                     'key': spec.key,
                     'value': spec.value
                 })
