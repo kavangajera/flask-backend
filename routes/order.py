@@ -1024,9 +1024,12 @@ def add_to_order():
     # Optional fields with defaults
     model_id = data.get('model_id')
     color_id = data.get('color_id')
-    discount_percent = data.get('discount_percent', 0)
-    tax_percent = data.get('tax_percent', 0)
-    delivery_charge = data.get('delivery_charge', 0)
+    from decimal import Decimal
+
+    discount_percent = Decimal(str(data.get('discount_percent', 0)))
+    tax_percent = Decimal(str(data.get('tax_percent', 0)))
+    delivery_charge = Decimal(str(data.get('delivery_charge', 0)))
+
     
     # Get customer ID from token
     customer_id = request.current_user.customer_id
