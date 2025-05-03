@@ -1042,7 +1042,6 @@ def add_to_order():
         return jsonify({'error': f'Product not found: {data["product_id"]}'}), 404
     
     # Determine unit price and verify stock
-    unit_price = product.base_price
     if color_id:
         color = ProductColor.query.get(color_id)
         if not color:
