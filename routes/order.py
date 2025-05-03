@@ -999,4 +999,163 @@ def save_serial_numbers():
             'error': 'Failed to save serial numbers',
             'details': str(e)
         }), 500
+    
+
+@order_bp.route('/order/add-to-order', methods=['POST'])
+@token_required(roles=['customer'])
+def add_to_order():
+    data = request.get_json()
+    
+    # Validate required fields
+    required_fields = ['product_id', 'address_id', 'payment_status', 'delivery_method', 'quantity']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({'error': f'Missing required field: {field}'}), 400
+    
+    # Optional fields with defaults
+    model_id = data.get('model_id')
+    color_id = data.get('color_id')
+    discount_percent = data.get('discount_percent', 0)
+    tax_percent = data.get('tax_percent', 0)
+    delivery_charge = data.get('delivery_charge', 0)
+    
+    # Get customer ID from token
+    customer_id = request.current_user.customer_id
+    
+    # Verify address belongs to customer
+    address = Address.query.get(data['address_id'])
+    if not address or address.customer_id != customer_id:
+        return jsonify({'error': 'Invalid address for this customer'}), 404
+    
+    # Get product information
+    product = Product.query.get(data['product_id'])
+    if not product:
+        return jsonify({'error': f'Product not found: {data["product_id"]}'}), 404
+    
+    # Determine unit price and verify stock
+    unit_price = product.base_price
+    if color_id:
+        color = ProductColor.query.get(color_id)
+        if not color:
+            return jsonify({'error': f'Product color not found: {color_id}'}), 404
+        
+        # Check if color belongs to this product
+        if color.product_id != data['product_id']:
+            return jsonify({'error': 'Color does not belong to this product'}), 400
+        
+        # Verify stock availability
+        if data['quantity'] > color.stock_quantity:
+            return jsonify({
+                'error': f'Not enough stock for product. Only {color.stock_quantity} available.',
+                'product_id': data['product_id'],
+                'color_id': color_id
+            }), 400
+        
+        unit_price = color.price
+    
+    # Calculate order totals
+    subtotal = unit_price * data['quantity']
+    total_item_price = subtotal
+    
+    # Calculate final amount
+    discount_amount = (subtotal * discount_percent) / 100
+    tax_amount = ((subtotal - discount_amount) * tax_percent) / 100
+    total_amount = subtotal - discount_amount + tax_amount + delivery_charge
+    
+    try:
+        # Get the next order_index value
+        max_order = db.session.query(db.func.max(Order.order_index)).scalar() or 0
+        next_order_index = max_order + 1
+        
+        # Current date for order_id generation
+        current_date = datetime.now()
+        
+        # Create new order with explicit order_index
+        order = Order(
+            order_index=next_order_index,
+            customer_id=customer_id,
+            address_id=data['address_id'],
+            total_items=data['quantity'],
+            subtotal=subtotal,
+            discount_percent=discount_percent,
+            delivery_charge=delivery_charge,
+            tax_percent=tax_percent,
+            total_amount=total_amount,
+            channel='online',
+            payment_status=data['payment_status'],
+            fulfillment_status=False,
+            delivery_status='pending',
+            delivery_method=data['delivery_method'],
+            awb_number=data.get('awb_number'),
+            created_at=current_date
+        )
+        
+        # Manually set the order_id with the expected format
+        date_str = current_date.strftime('%d-%m-%Y')
+        order.order_id = f"{date_str}#{next_order_index}"
+        
+        db.session.add(order)
+        db.session.flush()
+        
+        # Create order item
+        order_item = OrderItem(
+            order_id=order.order_id,
+            product_id=data['product_id'],
+            model_id=model_id,
+            color_id=color_id,
+            quantity=data['quantity'],
+            unit_price=unit_price,
+            total_price=total_item_price
+        )
+        
+        db.session.add(order_item)
+        db.session.flush()  # Get item_id
+        
+        # Create order details for each quantity
+        for i in range(1, data['quantity'] + 1):
+            order_detail = OrderDetail(
+                item_id=order_item.item_id,
+                order_id=order.order_id,
+                product_id=data['product_id']
+            )
+            db.session.add(order_detail)
+        
+        # Update stock quantity if color is specified
+        if color_id:
+            color = ProductColor.query.get(color_id)
+            color.stock_quantity -= data['quantity']
+            if color.stock_quantity < 0:
+                db.session.rollback()
+                return jsonify({'error': f'Not enough stock for product {product.name}'}), 400
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Order placed successfully',
+            'order': {
+                'order_id': order.order_id,
+                'customer_id': customer_id,
+                'total_items': order.total_items,
+                'subtotal': float(order.subtotal),
+                'discount_percent': float(order.discount_percent),
+                'delivery_charge': float(order.delivery_charge),
+                'tax_percent': float(order.tax_percent),
+                'total_amount': float(order.total_amount),
+                'payment_status': order.payment_status,
+                'delivery_method': order.delivery_method,
+                'created_at': order.created_at.isoformat(),
+                'items': [{
+                    'product_id': order_item.product_id,
+                    'model_id': order_item.model_id,
+                    'color_id': order_item.color_id,
+                    'quantity': order_item.quantity,
+                    'unit_price': float(order_item.unit_price),
+                    'total_price': float(order_item.total_price)
+                }]
+            }
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Error creating order: {str(e)}'}), 500
 
