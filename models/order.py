@@ -4,7 +4,7 @@ from extensions import db
 class Order(db.Model):
     __tablename__ = 'orders'
     
-    # New columns
+    # New columns - explicit autoincrement
     order_index = db.Column(db.Integer, autoincrement=True, nullable=False, unique=True)
     
     # Computed order_id
@@ -34,15 +34,19 @@ class Order(db.Model):
         db.ForeignKeyConstraint(['offline_customer_id'], ['offline_customer.customer_id'], ondelete='CASCADE'),
         db.CheckConstraint('customer_id IS NOT NULL OR offline_customer_id IS NOT NULL', name='check_order_customer_type'),
     )
-    # Computed order_id
     
+    # Modified generate_order_id method
     def generate_order_id(self):
+        if not self.order_index:
+            raise ValueError("order_index must be set before generating order_id")
         date_str = self.created_at.strftime('%d-%m-%Y')
         return f"{date_str}#{self.order_index}"
     
+    # Modified __init__ method - does not set order_id automatically
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.order_id = self.generate_order_id()
+        # Note: No longer automatically setting order_id here 
+        # This should be done explicitly after setting order_index
     
     # Relationships
     customer = db.relationship('Customer', back_populates='orders')
@@ -54,8 +58,7 @@ class OrderItem(db.Model):
     __tablename__ = 'order_items'
     
     item_id = db.Column(db.Integer, primary_key=True)
-    # order_id = db.Column(db.Integer, db.ForeignKey('orders.order_id'), nullable=False)
-    order_id = db.Column(db.String(20), db.ForeignKey('orders.order_id'), nullable=False)  # Changed
+    order_id = db.Column(db.String(30), db.ForeignKey('orders.order_id'), nullable=False)  # Increased length
     product_id = db.Column(db.Integer, db.ForeignKey('products.product_id'), nullable=False)
     model_id = db.Column(db.Integer, db.ForeignKey('product_models.model_id'), nullable=True)
     color_id = db.Column(db.Integer, db.ForeignKey('product_colors.color_id'), nullable=True)
@@ -87,8 +90,7 @@ class OrderDetail(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     item_id = db.Column(db.Integer, db.ForeignKey('order_items.item_id', ondelete='CASCADE'), nullable=False)
     sr_no = db.Column(db.String(250), nullable=True)
-    # order_id = db.Column(db.Integer, db.ForeignKey('orders.order_id', ondelete='CASCADE'), nullable=False)
-    order_id = db.Column(db.String(20), db.ForeignKey('orders.order_id', ondelete='CASCADE'), nullable=False)  # Changed
+    order_id = db.Column(db.String(30), db.ForeignKey('orders.order_id', ondelete='CASCADE'), nullable=False)  # Increased length
     product_id = db.Column(db.Integer, db.ForeignKey('products.product_id', ondelete='CASCADE'), nullable=False)
     
     # Relationships

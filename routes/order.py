@@ -543,12 +543,17 @@ def create_order():
     tax_amount = ((subtotal - discount_amount) * data.get('tax_percent', 0)) / 100
     total_amount = subtotal - discount_amount + tax_amount + data.get('delivery_charge', 0)
 
-    
-
     try:
-        # Create and add order
+        # Get the next order_index value
+        max_order = db.session.query(db.func.max(Order.order_index)).scalar() or 0
+        next_order_index = max_order + 1
+        
+        # Current date for order_id generation
+        current_date = datetime.now()
+        
+        # Create and add order with explicit order_index
         order = Order(
-            
+            order_index=next_order_index,  # Set the order_index explicitly
             offline_customer_id=customer.customer_id,
             address_id=address.address_id,
             total_items=len(order_items),
@@ -561,8 +566,14 @@ def create_order():
             payment_status=data.get('payment_status', 'paid'),
             fulfillment_status=data.get('fulfillment_status', False),
             delivery_status=data.get('delivery_status', 'intransit'),
-            delivery_method=data.get('delivery_method', 'shipping')
+            delivery_method=data.get('delivery_method', 'shipping'),
+            created_at=current_date
         )
+        
+        # Manually set the order_id with the expected format
+        date_str = current_date.strftime('%d-%m-%Y')
+        order.order_id = f"{date_str}#{next_order_index}"
+        
         db.session.add(order)
         db.session.flush()  # So order_id is available for order items
 
@@ -578,6 +589,15 @@ def create_order():
                 total_price=item['total_price']
             )
             db.session.add(order_item)
+            
+            # Create order details for each quantity
+            for i in range(1, item['quantity'] + 1):
+                order_detail = OrderDetail(
+                    item_id=order_item.item_id,
+                    order_id=order.order_id,
+                    product_id=item['product_id']
+                )
+                db.session.add(order_detail)
 
         for color in stock_updates:
             db.session.add(color)
@@ -585,7 +605,11 @@ def create_order():
                 print(f"Warning: Product color {color.name} stock is below threshold ({color.stock_quantity}/{color.threshold})")
 
         db.session.commit()
-        return jsonify({'message': 'Order created successfully', 'order_id': order.order_id}), 201
+        return jsonify({
+            'message': 'Order created successfully', 
+            'order_id': order.order_id,
+            'timestamp': current_date.isoformat()
+        }), 201
 
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -645,85 +669,98 @@ def place_order():
     tax_amount = ((subtotal - discount_amount) * tax_percent) / 100
     total_amount = subtotal - discount_amount + tax_amount + delivery_charge
     
-    
-    # Create new order with custom ID
-    order = Order(
-        customer_id=customer_id,
-        address_id=data['address_id'],
-        total_items=len(cart_items),
-        subtotal=subtotal,
-        discount_percent=discount_percent,
-        delivery_charge=delivery_charge,
-        tax_percent=tax_percent,
-        total_amount=total_amount,
-        channel='online',  # Hardcoded for this endpoint
-        payment_status=data['payment_status'],
-        fulfillment_status=False,
-        delivery_status='pending',
-        delivery_method=data['delivery_method'],
-        awb_number=data.get('awb_number'),
-        created_at=datetime.now()
-    )
-    
-    db.session.add(order)
-    db.session.flush()
-    # Create order items from cart items and order details
-    order_items = []
-    for cart_item in cart_items:
-        # Get product and price information
-        product = Product.query.get(cart_item.product_id)
-        if not product:
-            db.session.rollback()
-            return jsonify({'error': f'Product not found: {cart_item.product_id}'}), 404
+    try:
+        # Get the next order_index value
+        # Method 1: Get the max order_index and increment it
+        max_order = db.session.query(db.func.max(Order.order_index)).scalar() or 0
+        next_order_index = max_order + 1
         
-        # Determine unit price
-        unit_price = 0
-        if cart_item.color_id:
-            color = ProductColor.query.get(cart_item.color_id)
-            if color:
-                unit_price = color.price
-                
-                # Update stock quantity
-                color.stock_quantity -= cart_item.quantity
-                if color.stock_quantity < 0:
-                    db.session.rollback()
-                    return jsonify({'error': f'Not enough stock for product {product.name}'}), 400
-        else:
-            unit_price = product.base_price
+        # Current date for order_id generation
+        current_date = datetime.now()
         
-        # Create order item
-        order_item = OrderItem(
-            order_id=order.order_id,
-            product_id=cart_item.product_id,
-            model_id=cart_item.model_id,
-            color_id=cart_item.color_id,
-            quantity=cart_item.quantity,
-            unit_price=unit_price,
-            total_price=cart_item.total_item_price
+        # Create new order with explicit order_index
+        order = Order(
+            order_index=next_order_index,  # Set the order_index explicitly
+            customer_id=customer_id,
+            address_id=data['address_id'],
+            total_items=len(cart_items),
+            subtotal=subtotal,
+            discount_percent=discount_percent,
+            delivery_charge=delivery_charge,
+            tax_percent=tax_percent,
+            total_amount=total_amount,
+            channel='online',  # Hardcoded for this endpoint
+            payment_status=data['payment_status'],
+            fulfillment_status=False,
+            delivery_status='pending',
+            delivery_method=data['delivery_method'],
+            awb_number=data.get('awb_number'),
+            created_at=current_date
         )
         
-        db.session.add(order_item)
-        db.session.flush()  # Get item_id
+        # Manually set the order_id with the expected format (do not rely on __init__)
+        date_str = current_date.strftime('%d-%m-%Y')
+        order.order_id = f"{date_str}#{next_order_index}"
         
-        # Create order details for each quantity
-        for i in range(1, cart_item.quantity + 1):
-            order_detail = OrderDetail(
-                item_id=order_item.item_id,
+        db.session.add(order)
+        db.session.flush()
+        
+        # Create order items from cart items and order details
+        order_items = []
+        for cart_item in cart_items:
+            # Get product and price information
+            product = Product.query.get(cart_item.product_id)
+            if not product:
+                db.session.rollback()
+                return jsonify({'error': f'Product not found: {cart_item.product_id}'}), 404
+            
+            # Determine unit price
+            unit_price = 0
+            if cart_item.color_id:
+                color = ProductColor.query.get(cart_item.color_id)
+                if color:
+                    unit_price = color.price
+                    
+                    # Update stock quantity
+                    color.stock_quantity -= cart_item.quantity
+                    if color.stock_quantity < 0:
+                        db.session.rollback()
+                        return jsonify({'error': f'Not enough stock for product {product.name}'}), 400
+            else:
+                unit_price = product.base_price
+            
+            # Create order item
+            order_item = OrderItem(
                 order_id=order.order_id,
-                product_id=cart_item.product_id
+                product_id=cart_item.product_id,
+                model_id=cart_item.model_id,
+                color_id=cart_item.color_id,
+                quantity=cart_item.quantity,
+                unit_price=unit_price,
+                total_price=cart_item.total_item_price
             )
-            db.session.add(order_detail)
+            
+            db.session.add(order_item)
+            db.session.flush()  # Get item_id
+            
+            # Create order details for each quantity
+            for i in range(1, cart_item.quantity + 1):
+                order_detail = OrderDetail(
+                    item_id=order_item.item_id,
+                    order_id=order.order_id,
+                    product_id=cart_item.product_id
+                )
+                db.session.add(order_detail)
+            
+            order_items.append(order_item)
         
-        order_items.append(order_item)
-    
-    # Clear cart items
-    for item in cart_items:
-        db.session.delete(item)
-    
-    # Reset cart total
-    cart.total_cart_price = 0
-    
-    try:
+        # Clear cart items
+        for item in cart_items:
+            db.session.delete(item)
+        
+        # Reset cart total
+        cart.total_cart_price = 0
+        
         db.session.commit()
         
         return jsonify({
