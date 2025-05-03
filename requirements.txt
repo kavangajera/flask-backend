@@ -11,3 +11,5 @@ Werkzeug
 flask-login
 authlib
 requests
+apscheduler
+flask-migrate
