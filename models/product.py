@@ -100,7 +100,7 @@
 
 from extensions import db
 from datetime import datetime
-
+from models.review import Review
 class Product(db.Model):
     __tablename__ = 'products'
     
@@ -124,6 +124,21 @@ class Product(db.Model):
     models = db.relationship('ProductModel', backref='product', lazy=True, cascade="all, delete-orphan")
     colors = db.relationship('ProductColor', backref='product', lazy=True, cascade="all, delete-orphan")
     specifications = db.relationship('ProductSpecification', backref='product', lazy=True, cascade="all, delete-orphan")
+    reviews = db.relationship('Review', backref='product', lazy=True, cascade="all, delete-orphan")
+
+    def update_rating(self):
+    
+        reviews = Review.query.filter_by(product_id=self.product_id).all()
+        if not reviews:
+            self.rating = 0
+            self.raters = 0
+        else:
+            total_rating = sum(review.rating for review in reviews)
+            self.raters = len(reviews)
+            self.rating = round(total_rating / self.raters, 1)
+        
+        db.session.commit()
+
 
 class ProductImage(db.Model):
     __tablename__ = 'product_images'

@@ -99,6 +99,7 @@ from routes.offline_customer_routes import offline_customer_bp
 from routes.wishlist import wishlist_bp
 from routes.state import state_bp
 from routes.address import address_bp
+from routes.review import reviews_bp
 from routes.profile import profile_bp
 from routes.forgotpass import forgotpass_bp
 from routes.deviceinfo import device_transaction_bp
@@ -176,6 +177,7 @@ app.register_blueprint(offline_customer_bp)
 app.register_blueprint(profile_bp)
 app.register_blueprint(forgotpass_bp)
 app.register_blueprint(device_transaction_bp)
+app.register_blueprint(reviews_bp)
 
 
 @app.after_request

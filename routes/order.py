@@ -7,6 +7,7 @@ from models.address import Address
 from models.device import DeviceTransaction
 import decimal
 from extensions import db
+from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
 
 
@@ -514,41 +515,45 @@ def generate_order_id():
     return f"{year_part}#{sequence_num}"
 
 
+
+
 @order_bp.route('/orders', methods=['POST'])
 @token_required(roles=['admin'])
 def create_order():
     data = request.get_json()
-    
+
     # Validate customer
-    customer = OfflineCustomer.query.get(data['customer_id'])
+    customer = OfflineCustomer.query.get(data.get('customer_id'))
     if not customer:
         return jsonify({'error': 'Customer not found'}), 404
-    
+
     # Get customer's default address
-    address = Address.query.filter_by(offline_customer_id=data['customer_id']).first()
+    address = Address.query.filter_by(offline_customer_id=customer.customer_id).first()
     if not address:
         return jsonify({'error': 'No address found for customer'}), 404
-    
-    # Calculate subtotal and create order items
+
     subtotal = 0
     order_items = []
-    
-    for item in data['items']:
+    stock_updates = []
+
+    # Prepare order items and check stock
+    for item in data.get('items', []):
         product = Product.query.get(item['product_id'])
         if not product:
-            return jsonify({'error': f'Product {item["product_id"]} not found'}), 404
-            
-        color = ProductColor.query.get(item['color_id']) if item.get('color_id') else None
-        model = ProductModel.query.get(item['model_id']) if item.get('model_id') else None
-        
-        # Check if we have enough stock
+            return jsonify({'error': f"Product {item['product_id']} not found"}), 404
+
+        color = ProductColor.query.get(item.get('color_id')) if item.get('color_id') else None
+        model = ProductModel.query.get(item.get('model_id')) if item.get('model_id') else None
+
         if color and color.stock_quantity < item['quantity']:
-            return jsonify({'error': f'Not enough stock for product color {color.name}. Available: {color.stock_quantity}'}), 400
-        
+            return jsonify({
+                'error': f"Not enough stock for color '{color.name}'. Available: {color.stock_quantity}"
+            }), 400
+
         unit_price = color.price if color else product.price
         total_price = unit_price * item['quantity']
         subtotal += total_price
-        
+
         order_items.append({
             'product_id': item['product_id'],
             'model_id': item.get('model_id'),
@@ -557,65 +562,64 @@ def create_order():
             'unit_price': unit_price,
             'total_price': total_price
         })
-    
-    # Calculate final amount
-    discount_amount = (subtotal * data['discount_percent']) / 100
-    tax_amount = ((subtotal - discount_amount) * data['tax_percent']) / 100
-    total_amount = subtotal - discount_amount + tax_amount + data['delivery_charge']
-    
-    # Create order
-    order = Order(
-        offline_customer_id=data['customer_id'],
-        address_id=address.address_id,
-        total_items=len(data['items']),
-        subtotal=subtotal,
-        discount_percent=data['discount_percent'],
-        delivery_charge=data['delivery_charge'],
-        tax_percent=data['tax_percent'],
-        total_amount=total_amount,
-        channel=data.get('channel', 'offline'),
-        payment_status=data.get('payment_status', 'paid'),
-        fulfillment_status=data.get('fulfillment_status', False),
-        delivery_status=data.get('delivery_status', 'intransit'),
-        delivery_method=data.get('delivery_method', 'shipping')
-    )
-    
-    db.session.add(order)
-    db.session.flush()  # Get order_id
-    
-    # Add items to order and update stock quantities
-    for item_data in order_items:
-        order_item = OrderItem(
-            order_id=order.order_id,
-            product_id=item_data['product_id'],
-            model_id=item_data['model_id'],
-            color_id=item_data['color_id'],
-            quantity=item_data['quantity'],
-            unit_price=item_data['unit_price'],
-            total_price=item_data['total_price']
-        )
-        db.session.add(order_item)
-        
-        # Update stock quantity for the product color
-        if item_data['color_id']:
-            color = ProductColor.query.get(item_data['color_id'])
-            color.stock_quantity -= item_data['quantity']
-            
-            # Optional: Check if stock is below threshold and log it
-            if color.stock_quantity <= color.threshold:
-                # You could log this or trigger notifications
-                print(f"Warning: Product color {color.name} stock is below threshold ({color.stock_quantity}/{color.threshold})")
-    
-    try:
-        db.session.commit()
-        return jsonify({
-            'message': 'Order created successfully',
-            'order_id': order.order_id
-        }), 201
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': f'Error creating order: {str(e)}'}), 500
 
+        # Keep track of stock updates
+        if color:
+            color.stock_quantity -= item['quantity']
+            stock_updates.append(color)
+
+    # Calculate totals
+    discount_amount = (subtotal * data.get('discount_percent', 0)) / 100
+    tax_amount = ((subtotal - discount_amount) * data.get('tax_percent', 0)) / 100
+    total_amount = subtotal - discount_amount + tax_amount + data.get('delivery_charge', 0)
+
+    order_id=generate_order_id()
+
+    try:
+        # Create and add order
+        order = Order(
+            order_id=order_id,
+            offline_customer_id=customer.customer_id,
+            address_id=address.address_id,
+            total_items=len(order_items),
+            subtotal=subtotal,
+            discount_percent=data.get('discount_percent', 0),
+            delivery_charge=data.get('delivery_charge', 0),
+            tax_percent=data.get('tax_percent', 0),
+            total_amount=total_amount,
+            channel=data.get('channel', 'offline'),
+            payment_status=data.get('payment_status', 'paid'),
+            fulfillment_status=data.get('fulfillment_status', False),
+            delivery_status=data.get('delivery_status', 'intransit'),
+            delivery_method=data.get('delivery_method', 'shipping')
+        )
+        db.session.add(order)
+        db.session.flush()  # So order_id is available for order items
+
+        # Add order items and apply stock updates
+        for item in order_items:
+            order_item = OrderItem(
+                order_id=order.order_id,
+                product_id=item['product_id'],
+                model_id=item['model_id'],
+                color_id=item['color_id'],
+                quantity=item['quantity'],
+                unit_price=item['unit_price'],
+                total_price=item['total_price']
+            )
+            db.session.add(order_item)
+
+        for color in stock_updates:
+            db.session.add(color)
+            if color.stock_quantity <= color.threshold:
+                print(f"Warning: Product color {color.name} stock is below threshold ({color.stock_quantity}/{color.threshold})")
+
+        db.session.commit()
+        return jsonify({'message': 'Order created successfully', 'order_id': order.order_id}), 201
+
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        return jsonify({'error': f'Database error: {str(e)}'}), 500
 
 
 
