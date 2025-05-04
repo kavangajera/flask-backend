@@ -1176,3 +1176,77 @@ def add_to_order():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'Error creating order: {str(e)}'}), 500
+    
+
+
+@order_bp.route('/customer/<int:customer_id>/orders', methods=['GET'])
+def get_customer_orders(customer_id):
+    """Get all orders for a specific customer"""
+    try:
+        # Get both online and offline orders for this customer
+        orders = Order.query.filter(
+            (Order.customer_id == customer_id) | 
+            (Order.offline_customer_id == customer_id)
+        ).order_by(Order.created_at.desc()).all()
+
+        if not orders:
+            return jsonify({'message': 'No orders found for this customer'}), 404
+
+        return jsonify([{
+            'order_id': order.order_id,
+            'total_amount': float(order.total_amount),
+            'payment_status': order.payment_status,
+            'delivery_status': order.delivery_status,
+            'created_at': order.created_at.isoformat(),
+            'item_count': order.total_items
+        } for order in orders])
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+
+@order_bp.route('/order/<path:order_id>/items', methods=['GET'])
+def get_order_items(order_id):
+    """Get all items for a specific order with complete details"""
+    try:
+        # No need to unquote since Flask handles path conversion
+        print(f"Looking for order: {order_id}")  # Debug log
+        
+        # Find exact match (including special characters)
+        order = Order.query.filter_by(order_id=order_id).first()
+        
+        if not order:
+            print(f"Order not found. Existing orders: {[o.order_id for o in Order.query.limit(10).all()]}")
+            return jsonify({'message': 'Order not found'}), 404
+
+        items = []
+        for item in order.items:
+            product = Product.query.get(item.product_id)
+            product_image = product.images[0].image_url if product and product.images else None
+            
+            items.append({
+                'product_id': item.product_id,
+                'product_name': product.name if product else f"Product {item.product_id}",
+                'product_image': product_image,
+                'model': item.model.name if item.model else None,
+                'color': item.color.name if item.color else None,
+                'quantity': item.quantity,
+                'unit_price': float(item.unit_price),
+                'total_price': float(item.total_price),
+                'serial_numbers': [sn.sr_number for sn in item.serial_numbers]
+            })
+
+        return jsonify({
+            'order_id': order.order_id,
+            'customer_id': order.customer_id or order.offline_customer_id,
+            'created_at': order.created_at.isoformat(),
+            'items': items,
+            'delivery_status': order.delivery_status,
+            'payment_status': order.payment_status,
+            'total_amount': float(order.total_amount),
+            'total_items': order.total_items
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
