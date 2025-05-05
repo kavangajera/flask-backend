@@ -480,7 +480,8 @@ def get_orders():
             'color_id': item.color_id,
             'quantity': item.quantity,
             'unit_price': float(item.unit_price),
-            'total_price': float(item.total_price)
+            'total_price': float(item.total_price),
+            'image_url': item.product.images[0].image_url if item.product and item.product.images else None,
         } for item in order.items]
     } for order in orders])
 
@@ -677,6 +678,7 @@ def place_order():
         
         # Current date for order_id generation
         current_date = datetime.now()
+        current_year = current_date.year
         
         # Create new order with explicit order_index
         order = Order(
@@ -699,8 +701,10 @@ def place_order():
         )
         
         # Manually set the order_id with the expected format (do not rely on __init__)
-        date_str = current_date.strftime('%d-%m-%Y')
-        order.order_id = f"{date_str}#{next_order_index}"
+        next_year = current_year + 1
+        next_year = str(next_year)
+        current_year = str(current_year)    
+        order.order_id = f"{current_year}{next_year[2:]}#{next_order_index}"
         
         db.session.add(order)
         db.session.flush()
