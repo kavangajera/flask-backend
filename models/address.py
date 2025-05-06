@@ -20,6 +20,7 @@ class Address(db.Model):
     landmark = db.Column(db.String(255))
     alternate_phone = db.Column(db.String(15))
     address_type = db.Column(db.String(20), nullable=False, default='Home')
+    is_available = db.Column(db.Boolean, default=False)  # यह पता सेवा में है या नहीं
     
     # लोकेशन कोऑर्डिनेट्स
     latitude = db.Column(db.Float)
