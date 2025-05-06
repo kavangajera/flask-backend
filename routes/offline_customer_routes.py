@@ -45,8 +45,8 @@ def create_offline_customer():
 
         # Check if pincode is serviceable
         service_check = is_service_available(address_data['pincode'])
-        if not service_check['success']:
-            return jsonify(service_check), 200
+        is_available = service_check['success']
+        new_address.is_available = is_available
 
         db.session.add(new_address)
     

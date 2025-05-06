@@ -139,8 +139,7 @@ def update_address(address_id):
     
     # Check if pincode is serviceable
     service_check = is_service_available(data['pincode'])
-    if not service_check['success']:
-        return jsonify(service_check), 200
+    address.is_available = service_check['success']
     
     # Update all fields
     address.name = data['name']
@@ -193,8 +192,7 @@ def partial_update_address(address_id):
     
     # Check if pincode is serviceable
     service_check = is_service_available(data['pincode'])
-    if not service_check['success']:
-        return jsonify(service_check), 200
+    address.is_available = service_check['success']
     
     # Update only provided fields
     for key, value in data.items():
