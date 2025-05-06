@@ -524,7 +524,7 @@ def create_order():
                 'error': f"Not enough stock for color '{color.name}'. Available: {color.stock_quantity}"
             }), 400
 
-        unit_price = color.price 
+        unit_price = color.price
         total_price = unit_price * item['quantity']
         subtotal += total_price
 
@@ -557,7 +557,7 @@ def create_order():
         
         # Create and add order with explicit order_index
         order = Order(
-            order_index=next_order_index,  # Set the order_index explicitly
+            order_index=next_order_index,
             offline_customer_id=customer.customer_id,
             address_id=address.address_id,
             total_items=len(order_items),
@@ -579,36 +579,43 @@ def create_order():
         order.order_id = f"{date_str}#{next_order_index}"
         
         db.session.add(order)
-        db.session.flush()  # So order_id is available for order items
+        db.session.flush()  # Generate order_id
 
-        # Add order items and apply stock updates
+        # Add order items
         for item in order_items:
             order_item = OrderItem(
                 order_id=order.order_id,
                 product_id=item['product_id'],
-                model_id=item['model_id'],
-                color_id=item['color_id'],
+                model_id=item.get('model_id'),
+                color_id=item.get('color_id'),
                 quantity=item['quantity'],
                 unit_price=item['unit_price'],
                 total_price=item['total_price']
             )
             db.session.add(order_item)
-            
+            db.session.flush()  # Generate order_item.item_id
+
             # Create order details for each quantity
             for i in range(1, item['quantity'] + 1):
                 order_detail = OrderDetail(
                     item_id=order_item.item_id,
+                    sr_no=i,
                     order_id=order.order_id,
                     product_id=item['product_id']
                 )
                 db.session.add(order_detail)
 
+        # Apply stock updates
         for color in stock_updates:
             db.session.add(color)
             if color.stock_quantity <= color.threshold:
                 print(f"Warning: Product color {color.name} stock is below threshold ({color.stock_quantity}/{color.threshold})")
 
         db.session.commit()
+
+        add_pickup_request(order.order_id)
+
+
         return jsonify({
             'message': 'Order created successfully', 
             'order_id': order.order_id,

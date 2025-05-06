@@ -72,8 +72,8 @@ def add_address():
     
     # Check if pincode is serviceable
     service_check = is_service_available(data['pincode'])
-    if not service_check['success']:
-        return jsonify(service_check), 200
+    is_avilable = service_check['success']
+        
     
     # Handle "Use my current location" if latitude and longitude are provided
     latitude = data.get('latitude')
@@ -91,6 +91,7 @@ def add_address():
         landmark=data.get('landmark'),
         alternate_phone=data.get('alternate_phone'),
         address_type=data['address_type'],
+        is_available=is_avilable,
         latitude=latitude,
         longitude=longitude
     )
