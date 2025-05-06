@@ -9,7 +9,6 @@ from models.device import DeviceTransaction
 import decimal
 from extensions import db
 from sqlalchemy.exc import SQLAlchemyError
-from services.add_pickup_req import add_pickup_request
 from datetime import datetime
 import os
 import requests
@@ -555,7 +554,6 @@ def create_order():
         
         # Current date for order_id generation
         current_date = datetime.now()
-        current_year = current_date.year
         
         # Create and add order with explicit order_index
         order = Order(
@@ -576,10 +574,9 @@ def create_order():
             created_at=current_date
         )
         
-        next_year = current_year + 1
-        next_year = str(next_year)
-        current_year = str(current_year)    
-        order.order_id = f"{current_year}{next_year[2:]}#{next_order_index}"
+        # Manually set the order_id with the expected format
+        date_str = current_date.strftime('%d-%m-%Y')
+        order.order_id = f"{date_str}#{next_order_index}"
         
         db.session.add(order)
         db.session.flush()  # So order_id is available for order items
@@ -772,8 +769,6 @@ def place_order():
         cart.total_cart_price = 0
         
         db.session.commit()
-
-        add_pickup_request(order.order_id)
         
         return jsonify({
             'success': True,
@@ -1159,8 +1154,6 @@ def add_to_order():
                     return jsonify({'error': f'Not enough stock for product {product.name}'}), 400
         
         db.session.commit()
-
-        add_pickup_request(order.order_id)
         
         return jsonify({
             'success': True,
@@ -1264,3 +1257,164 @@ def get_order_items(order_id):
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@order_bp.route('/order/<path:order_id>/add-pickup-req', methods=['PUT'])
+@token_required(roles=['admin'])      
+def add_pickup_request(order_id):
+    """Add a pickup request for an order to Delhivery API
+    
+    Takes an order ID and creates a pickup request with the Delhivery API
+    """
+    try:
+        
+        print(order_id)
+        order = Order.query.filter_by(order_id=order_id).first()
+        
+        if not order:
+            return jsonify({'error': 'Order not found'}), 404
+            
+        # Get order address information
+        address = Address.query.filter_by(address_id=order.address_id).first()
+        if not address:
+            return jsonify({'error': 'Order address not found'}), 404
+            
+        # Get customer information
+        customer = None
+        if order.customer_id:
+            customer = Customer.query.filter_by(customer_id=order.customer_id).first()
+        elif order.offline_customer_id:
+            customer = OfflineCustomer.query.filter_by(customer_id=order.offline_customer_id).first()
+            
+        if not customer:
+            return jsonify({'error': 'Customer not found'}), 404
+            
+        # Get state information
+        state = address.state
+        if not state:
+            return jsonify({'error': 'State information not found'}), 404
+            
+        # Calculate total weight and build product description
+        total_weight = 0.0
+        products_desc = []
+        
+        for item in order.items:
+            # Assuming each product might have a weight attribute, if not you'll need to modify this
+            product_weight = getattr(item.product, 'weight', 0.5)  # Default to 0.5 kg if not specified
+            total_weight += product_weight * item.quantity
+            
+            # Build product description
+            product_name = item.product.name if hasattr(item.product, 'name') else f"Product #{item.product_id}"
+            products_desc.append(f"{product_name} x{item.quantity}")
+        
+        # Format the shipment data for Delhivery API
+        shipment_data = {
+            "name": address.name,
+            "add": f"{address.address_line}, {address.locality}",
+            "city": address.city,
+            "pin": address.pincode,
+            "state": state.name if hasattr(state, 'name') else "",
+            "country": "India",
+            "phone": address.mobile,
+            "order": order_id,
+            "payment_mode": "Prepaid" if order.payment_status == "paid" else "COD",
+            "total_amount": float(order.total_amount),
+            "cod_amount": 0 if order.payment_status == "paid" else float(order.total_amount),
+            "weight": total_weight,
+            "shipment_width": 10,
+            "shipment_height": 10,
+            "shipment_length": 10,
+            "waybill": order.awb_number or "",
+            "products_desc": ", ".join(products_desc)
+        }
+        
+        # Prepare the full request payload for Delhivery API
+        payload = {
+            "pickup_location": {
+            "name": "mTm2",
+            "add": "Address Line",
+            "city": "City",
+            "state": "State",
+            "country": "India",
+            "pin": "110001",
+            "phone": "9999999999"
+            },
+            "shipments": [shipment_data]
+        }
+        
+        # Send request to Delhivery API
+
+        
+        DELHIVERY_KEY = os.getenv("DELHIVERY_KEY")
+
+        url = "https://track.delhivery.com/api/cmu/create.json"
+
+        headers = {
+            "Authorization": "Token "+DELHIVERY_KEY
+        }
+
+
+        response = requests.post(
+            url,
+            headers=headers,
+            data={
+                    'data': json.dumps(payload),
+                    'format': 'json'  # ✅ Important to add this
+            }
+        )
+
+        if response.status_code != 200:
+            return jsonify({'error': 'Failed to create pickup request', 'details': response.text}), response.status_code
+
+        response_data = response.json()
+        
+        # Update the order with waybill and upload_wbn from the response
+        try:
+            if 'waybill' in response_data['packages'][0]:
+                order.awb_number = response_data['packages'][0].get('waybill')
+            
+            if 'upload_wbn' in response_data:
+                order.upload_wbn = response_data['upload_wbn']
+                
+            # Set delivery status to processing or another appropriate status
+            order.delivery_status = 'processing'
+            
+            # Save changes to database
+            db.session.commit()
+            
+            return jsonify({
+                'message': 'Pickup request created successfully',
+                'order_id': order.order_id,
+                'waybill': order.awb_number,
+                'upload_wbn': order.upload_wbn,
+                'response': response_data
+            }), 200
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': f'Failed to update order with waybill: {str(e)}'}), 500
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+
+@order_bp.route('/order/<path:order_id>/track',methods=['GET'])
+@token_required(roles=['customer'])
+def track_order(order_id):
+
+       try:
+           order = Order.query.filter_by(order_id=order_id).first()
+           if not order:
+               return jsonify({'error': 'Order not found'}), 404
+           waybill=order.awb_number
+           if not waybill:
+               return jsonify({'error': 'Waybill not found'}), 404
+           # Call the API to track the order
+           
+           DELHIVERY_KEY = os.getenv("DELHIVERY_KEY")
+           url = f"https://track.delhivery.com/api/v1/packages/json/?waybill={waybill}&token={DELHIVERY_KEY}"
+
+           response = requests.get(url)
+           response.raise_for_status()  # Raises HTTPError for bad responses (4xx/5xx)
+           return response.json()
+       except requests.exceptions.RequestException as e:
+        return {'error': str(e)}
