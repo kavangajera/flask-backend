@@ -35,7 +35,5 @@ class OfflineCustomer(UserMixin, db.Model):
             'name': self.name,
             'mobile': self.mobile,
             'email': self.email,
-            'role': self.role,
-            'google_id': self.google_id,
-            
+            'role': self.role,            
         } 

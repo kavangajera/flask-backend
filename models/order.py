@@ -25,6 +25,7 @@ class Order(db.Model):
     delivery_status = db.Column(db.String(20), default='intransit')
     delivery_method = db.Column(db.String(20), default='shipping')
     awb_number = db.Column(db.String(50), nullable=True)
+    upload_wbn = db.Column(db.String(50), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

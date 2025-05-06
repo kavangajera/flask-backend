@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from models.order import Order,OrderItem,OrderDetail
+from models.customer import Customer
 from models.offline_customer import OfflineCustomer
 from models.cart import Cart,CartItem
 from models.product import Product,ProductColor,ProductModel,ModelSpecification,ProductSpecification
@@ -8,7 +9,11 @@ from models.device import DeviceTransaction
 import decimal
 from extensions import db
 from sqlalchemy.exc import SQLAlchemyError
+from services.add_pickup_req import add_pickup_request
 from datetime import datetime
+import os
+import requests
+import json
 
 
 from middlewares.auth import token_required
@@ -765,6 +770,8 @@ def place_order():
         cart.total_cart_price = 0
         
         db.session.commit()
+
+        add_pickup_request(order.order_id)
         
         return jsonify({
             'success': True,
@@ -1150,6 +1157,8 @@ def add_to_order():
                     return jsonify({'error': f'Not enough stock for product {product.name}'}), 400
         
         db.session.commit()
+
+        add_pickup_request(order.order_id)
         
         return jsonify({
             'success': True,
