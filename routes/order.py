@@ -525,7 +525,7 @@ def create_order():
                 'error': f"Not enough stock for color '{color.name}'. Available: {color.stock_quantity}"
             }), 400
 
-        unit_price = color.price if color else product.price
+        unit_price = color.price
         total_price = unit_price * item['quantity']
         subtotal += total_price
 
