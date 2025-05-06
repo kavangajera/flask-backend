@@ -555,6 +555,7 @@ def create_order():
         
         # Current date for order_id generation
         current_date = datetime.now()
+        current_year = current_date.year
         
         # Create and add order with explicit order_index
         order = Order(
@@ -575,9 +576,10 @@ def create_order():
             created_at=current_date
         )
         
-        # Manually set the order_id with the expected format
-        date_str = current_date.strftime('%d-%m-%Y')
-        order.order_id = f"{date_str}#{next_order_index}"
+        next_year = current_year + 1
+        next_year = str(next_year)
+        current_year = str(current_year)    
+        order.order_id = f"{current_year}{next_year[2:]}#{next_order_index}"
         
         db.session.add(order)
         db.session.flush()  # So order_id is available for order items
