@@ -746,6 +746,15 @@ def place_order():
                 unit_price=unit_price,
                 total_price=cart_item.total_item_price
             )
+
+            for i in range(1, cart_item.quantity + 1):
+                order_detail = OrderDetail(
+                    item_id=order_item.item_id,
+                    order_id=order.order_id,
+                    product_id=cart_item.product_id
+                )
+                db.session.add(order_detail)
+                
             
             db.session.add(order_item)
             db.session.flush()  # Get item_id
