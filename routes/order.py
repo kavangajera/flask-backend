@@ -594,6 +594,13 @@ def create_order():
                 unit_price=item['unit_price'],
                 total_price=item['total_price']
             )
+            for i in range(1, order_item.quantity + 1):
+                order_detail = OrderDetail(
+                    item_id=order_item.item_id,
+                    order_id=order.order_id,
+                    product_id=order_item.product_id
+                )
+                db.session.add(order_detail)
             db.session.add(order_item)
             db.session.flush()  # Generate order_item.item_id
 
