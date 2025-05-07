@@ -595,7 +595,9 @@ def create_order():
                 total_price=item['total_price']
             )
             db.session.add(order_item)
-            db.session.flush()  # Generate order_item.item_id            
+            db.session.flush()  # Generate order_item.item_id
+
+            
 
         # Apply stock updates
         for color in stock_updates:
@@ -748,7 +750,14 @@ def place_order():
             db.session.add(order_item)
             db.session.flush()  # Get item_id
             
-            
+            # Create order details for each quantity
+            for i in range(1, cart_item.quantity + 1):
+                order_detail = OrderDetail(
+                    item_id=order_item.item_id,
+                    order_id=order.order_id,
+                    product_id=cart_item.product_id
+                )
+                db.session.add(order_detail)
             
             order_items.append(order_item)
         
@@ -1121,7 +1130,13 @@ def add_to_order():
         db.session.flush()  # Get item_id
         
         # Create order details for each quantity
-        
+        for i in range(1, data['quantity'] + 1):
+            order_detail = OrderDetail(
+                item_id=order_item.item_id,
+                order_id=order.order_id,
+                product_id=data['product_id']
+            )
+            db.session.add(order_detail)
         
         # Update stock quantity if color is specified
         if color_id:
