@@ -462,7 +462,9 @@ def get_orders():
             'alternate_phone': order.address.alternate_phone,
             'address_type': order.address.address_type,
             'latitude': order.address.latitude,
-            'longitude': order.address.longitude
+            'longitude': order.address.longitude,
+            'is_available': order.address.is_available  # ✅ Added this line
+
         },
         'total_items': order.total_items,
         'subtotal': float(order.subtotal),
@@ -568,7 +570,8 @@ def create_order():
             tax_percent=data.get('tax_percent', 0),
             total_amount=total_amount,
             channel=data.get('channel', 'offline'),
-            payment_status=data.get('payment_status', 'paid'),
+            payment_status='unpaid',
+            order_status='APPROVED',
             fulfillment_status=data.get('fulfillment_status', False),
             delivery_status=data.get('delivery_status', 'intransit'),
             delivery_method=data.get('delivery_method', 'shipping'),
@@ -894,13 +897,39 @@ def get_order_details_expanded(order_id):
                 'model_name': model_name,
                 'color_name': color_name,
                 'unit_price': float(order_item.unit_price) if order_item else 0,
-                'status': getattr(detail, 'status', None),  # Safely get status if it exists
+                'status': getattr(detail, 'status', None),
                 'created_at': detail.created_at.isoformat() if hasattr(detail, 'created_at') and detail.created_at else None
             })
+        
+        # Include address information like in the /orders endpoint
+        address_data = None
+        if order.address:
+            address_data = {
+                'address_id': order.address.address_id,
+                'name': order.address.name,
+                'mobile': order.address.mobile,
+                'pincode': order.address.pincode,
+                'locality': order.address.locality,
+                'address_line': order.address.address_line,
+                'city': order.address.city,
+                'state': {
+                    'state_id': order.address.state.state_id,
+                    'name': order.address.state.name,
+                    'abbreviation': order.address.state.abbreviation
+                },
+                'landmark': order.address.landmark,
+                'alternate_phone': order.address.alternate_phone,
+                'address_type': order.address.address_type,
+                'latitude': order.address.latitude,
+                'longitude': order.address.longitude,
+                'is_available': order.address.is_available  # ✅ Make sure this is included
+            }
         
         return jsonify({
             'order_id': order.order_id,
             'customer_id': order.customer_id,
+            'offline_customer_id': order.offline_customer_id,
+            'customer_type': 'offline' if order.offline_customer_id else 'online',
             'total_details': len(expanded_details),
             'subtotal': float(order.subtotal),
             'total_amount': float(order.total_amount),
@@ -908,13 +937,15 @@ def get_order_details_expanded(order_id):
             'fulfillment_status': order.fulfillment_status,
             'delivery_status': order.delivery_status,
             'created_at': order.created_at.isoformat(),
+            'awb_number': order.awb_number,
+            'upload_wbn': order.upload_wbn,
+            'address': address_data,
             'details': expanded_details
         })
+
     except Exception as e:
-        # Log the error for debugging
         print(f"Error in get_order_details_expanded: {str(e)}")
         return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
-
 
 
 # @order_bp.route('/orders/save-sr-numbers', methods=['POST'])
@@ -1435,3 +1466,57 @@ def track_order(order_id):
            return response.json()
        except requests.exceptions.RequestException as e:
         return {'error': str(e)}
+@order_bp.route('/approve-order/<path:order_id>',methods=['GET'])
+@token_required(roles=['admin'])
+def approve_order(order_id):
+    try:
+        order = Order.query.filter_by(order_id=order_id).first()
+        if not order:
+            return jsonify({'error': 'Order not found'}), 404
+        
+        order.order_status = "APPROVED"
+        db.session.add(order)  # Optional for updates, but safe
+        db.session.commit()    # Save the changes
+        
+        return jsonify({'message': 'Order approved successfully'}), 200
+    except Exception as e:
+        db.session.rollback()  # Roll back in case of error
+        return jsonify({'error': str(e)}), 500
+
+@order_bp.route('/reject-order/<path:order_id>', methods=['DELETE'])
+@token_required(roles=['admin'])
+def reject_order(order_id):
+    try:
+        order = Order.query.filter_by(order_id=order_id).first()
+        if not order:
+            return jsonify({'error': 'Order not found'}), 404
+
+        db.session.delete(order)
+        db.session.commit()
+
+        return jsonify({'message': 'Order deleted (rejected) successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@order_bp.route('/update-payment-status/<path:order_id>', methods=['PUT'])
+@token_required(roles=['admin'])
+def update_payment_status(order_id):
+    try:
+        data = request.get_json()
+        payment_status = data.get('payment_status')
+
+        if not payment_status:
+            return jsonify({'error': 'payment_status is required'}), 400
+
+        order = Order.query.filter_by(order_id=order_id).first()
+        if not order:
+            return jsonify({'error': 'Order not found'}), 404
+
+        order.payment_status = payment_status
+        db.session.commit()
+
+        return jsonify({'message': 'Payment status updated successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
