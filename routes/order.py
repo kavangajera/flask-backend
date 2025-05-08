@@ -571,6 +571,7 @@ def create_order():
             total_amount=total_amount,
             channel=data.get('channel', 'offline'),
             payment_status=data.get('payment_status', 'paid'),
+            order_status='APPROVED',
             fulfillment_status=data.get('fulfillment_status', False),
             delivery_status=data.get('delivery_status', 'intransit'),
             delivery_method=data.get('delivery_method', 'shipping'),
@@ -1151,7 +1152,6 @@ def add_to_order():
             fulfillment_status=False,
             delivery_status='pending',
             delivery_method=data['delivery_method'],
-            order_status="APPROVED",
             awb_number=data.get('awb_number'),
             created_at=current_date
         )
