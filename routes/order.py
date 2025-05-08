@@ -570,7 +570,7 @@ def create_order():
             tax_percent=data.get('tax_percent', 0),
             total_amount=total_amount,
             channel=data.get('channel', 'offline'),
-            payment_status=data.get('payment_status', 'paid'),
+            payment_status='unpaid',
             order_status='APPROVED',
             fulfillment_status=data.get('fulfillment_status', False),
             delivery_status=data.get('delivery_status', 'intransit'),
@@ -1495,6 +1495,28 @@ def reject_order(order_id):
         db.session.commit()
 
         return jsonify({'message': 'Order deleted (rejected) successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@order_bp.route('/update-payment-status/<path:order_id>', methods=['PUT'])
+@token_required(roles=['admin'])
+def update_payment_status(order_id):
+    try:
+        data = request.get_json()
+        payment_status = data.get('payment_status')
+
+        if not payment_status:
+            return jsonify({'error': 'payment_status is required'}), 400
+
+        order = Order.query.filter_by(order_id=order_id).first()
+        if not order:
+            return jsonify({'error': 'Order not found'}), 404
+
+        order.payment_status = payment_status
+        db.session.commit()
+
+        return jsonify({'message': 'Payment status updated successfully'}), 200
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
