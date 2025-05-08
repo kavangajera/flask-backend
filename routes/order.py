@@ -1435,3 +1435,19 @@ def track_order(order_id):
            return response.json()
        except requests.exceptions.RequestException as e:
         return {'error': str(e)}
+@order_bp.route('/approve-order/<path:order_id>',methods=['GET'])
+@token_required(roles=['admin'])
+def approve_order(order_id):
+    try:
+        order = Order.query.filter_by(order_id=order_id).first()
+        if not order:
+            return jsonify({'error': 'Order not found'}), 404
+        
+        order.order_status = "APPROVED"
+        db.session.add(order)  # Optional for updates, but safe
+        db.session.commit()    # Save the changes
+        
+        return jsonify({'message': 'Order approved successfully'}), 200
+    except Exception as e:
+        db.session.rollback()  # Roll back in case of error
+        return jsonify({'error': str(e)}), 500
