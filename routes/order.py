@@ -1121,6 +1121,7 @@ def add_to_order():
             fulfillment_status=False,
             delivery_status='pending',
             delivery_method=data['delivery_method'],
+            order_status="APPROVED",
             awb_number=data.get('awb_number'),
             created_at=current_date
         )
@@ -1450,4 +1451,20 @@ def approve_order(order_id):
         return jsonify({'message': 'Order approved successfully'}), 200
     except Exception as e:
         db.session.rollback()  # Roll back in case of error
+        return jsonify({'error': str(e)}), 500
+
+@order_bp.route('/reject-order/<path:order_id>', methods=['DELETE'])
+@token_required(roles=['admin'])
+def reject_order(order_id):
+    try:
+        order = Order.query.filter_by(order_id=order_id).first()
+        if not order:
+            return jsonify({'error': 'Order not found'}), 404
+
+        db.session.delete(order)
+        db.session.commit()
+
+        return jsonify({'message': 'Order deleted (rejected) successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
         return jsonify({'error': str(e)}), 500
