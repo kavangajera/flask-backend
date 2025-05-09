@@ -440,7 +440,7 @@ def clear_cart():
 @order_bp.route('/orders', methods=['GET'])
 def get_orders():
 
-    orders = Order.query.order_by(Order.created_at.desc()).all()
+    orders = Order.query.filter(Order.order_status != "REJECTED").order_by(Order.created_at.desc()).all()
 
     return jsonify([{
         'order_id': order.order_id,
@@ -490,6 +490,59 @@ def get_orders():
         } for item in order.items]
     } for order in orders])
 
+
+@order_bp.route('/orders/rejected', methods=['GET'])
+def get_orders():
+
+    orders = Order.query.filter(Order.order_status == "REJECTED").order_by(Order.created_at.desc()).all()
+
+    return jsonify([{
+        'order_id': order.order_id,
+        'customer_id': order.customer_id,
+        'address': {
+            'address_id': order.address.address_id,
+            'name': order.address.name,
+            'mobile': order.address.mobile,
+            'pincode': order.address.pincode,
+            'locality': order.address.locality,
+            'address_line': order.address.address_line,
+            'city': order.address.city,
+            'state': {
+                'state_id': order.address.state.state_id,
+                'name': order.address.state.name,
+                'abbreviation': order.address.state.abbreviation
+            },
+            'landmark': order.address.landmark,
+            'alternate_phone': order.address.alternate_phone,
+            'address_type': order.address.address_type,
+            'latitude': order.address.latitude,
+            'longitude': order.address.longitude,
+            'is_available': order.address.is_available  # ✅ Added this line
+
+        },
+        'total_items': order.total_items,
+        'subtotal': float(order.subtotal),
+        'discount_percent': float(order.discount_percent),
+        'delivery_charge': float(order.delivery_charge),
+        'tax_percent': float(order.tax_percent),
+        'total_amount': float(order.total_amount),
+        'channel': order.channel,
+        'payment_status': order.payment_status,
+        'fulfillment_status': order.fulfillment_status,
+        'delivery_status': order.delivery_status,
+        'delivery_method': order.delivery_method,
+        'awb_number': order.awb_number,
+        'created_at': order.created_at.isoformat(),
+        'items': [{
+            'product_id': item.product_id,
+            'model_id': item.model_id,
+            'color_id': item.color_id,
+            'quantity': item.quantity,
+            'unit_price': float(item.unit_price),
+            'total_price': float(item.total_price),
+            'image_url': item.product.images[0].image_url if item.product and item.product.images else None,
+        } for item in order.items]
+    } for order in orders])
 
 
 
@@ -1487,7 +1540,7 @@ def reject_order(order_id):
         if not order:
             return jsonify({'error': 'Order not found'}), 404
 
-        db.session.delete(order)
+        order.order_status="REJECTED"
         db.session.commit()
 
         return jsonify({'message': 'Order deleted (rejected) successfully'}), 200
