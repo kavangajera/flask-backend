@@ -711,7 +711,8 @@ def place_order():
             delivery_status='pending',
             delivery_method=data['delivery_method'],
             awb_number=data.get('awb_number'),
-            created_at=current_date
+            created_at=current_date,
+            order_status="PENDING"
         )
         
         # Manually set the order_id with the expected format (do not rely on __init__)
@@ -758,13 +759,7 @@ def place_order():
                 total_price=cart_item.total_item_price
             )
 
-            for i in range(1, cart_item.quantity + 1):
-                order_detail = OrderDetail(
-                    item_id=order_item.item_id,
-                    order_id=order.order_id,
-                    product_id=cart_item.product_id
-                )
-                db.session.add(order_detail)
+            
                 
             
             db.session.add(order_item)
@@ -1435,6 +1430,7 @@ def add_pickup_request(order_id):
                 'order_id': order.order_id,
                 'waybill': order.awb_number,
                 'upload_wbn': order.upload_wbn,
+                'fulfillment_status': True, 
                 'response': response_data
             }), 200
         except Exception as e:
