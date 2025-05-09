@@ -1,11 +1,84 @@
 from flask import Blueprint, request, jsonify
 from middlewares.auth import token_required
 from extensions import db
-from models.device import DeviceTransaction
+from models.device import DeviceTransaction  # Adjust import based on your structure
+import pandas as pd
 from datetime import datetime
 
 
 device_transaction_bp = Blueprint('device_transaction', __name__)
+
+@device_transaction_bp.route('/upload-device-transaction', methods=['POST'])
+@token_required(roles=['admin'])
+def upload_device_transaction():
+    if 'file' not in request.files:
+        return jsonify({'success': False, 'message': 'No file part in the request'}), 400
+
+    file = request.files['file']
+
+    if file.filename == '':
+        return jsonify({'success': False, 'message': 'No selected file'}), 400
+
+    try:
+        # Read file into a pandas DataFrame
+        if file.filename.endswith('.csv'):
+            df = pd.read_csv(file)
+        elif file.filename.endswith('.xlsx'):
+            try:
+                df = pd.read_excel(file, engine='openpyxl')  # Explicitly specify engine
+            except ImportError:
+                return jsonify({
+                    'success': False,
+                    'message': 'Excel support requires openpyxl. Install with: pip install openpyxl'
+                }), 500
+        else:
+            return jsonify({'success': False, 'message': 'Unsupported file format. Only CSV and Excel are allowed.'}), 400
+        
+        # Normalize column names
+        df.columns = [col.strip() for col in df.columns]
+
+        required_columns = [
+            'Device_SRNO', 'Device_Name', 'SKU_ID', 'Order_ID', 'IN_Out', 'Create_date', 'Price', 'Remarks'
+        ]
+        
+        # Fill missing columns with None
+        for col in required_columns:
+            if col not in df.columns:
+                df[col] = None
+        
+        # Replace NaN with None
+        df = df.where(pd.notnull(df), None)
+
+        # Insert into database
+        inserted_records = 0
+        for index, row in df.iterrows():
+            try:
+                transaction = DeviceTransaction(
+                    device_srno=row.get('Device_SRNO'),
+                    device_name=row.get('Device_Name'),
+                    sku_id=row.get('SKU_ID'),
+                    order_id=row.get('Order_ID'),
+                    in_out=int(row.get('IN_Out')) if row.get('IN_Out') else None,
+                    create_date=pd.to_datetime(row.get('Create_date')).date() if row.get('Create_date') else None,
+                    price=row.get('Price'),
+                    remarks=row.get('Remarks')
+                )
+                db.session.add(transaction)
+                inserted_records += 1
+            except Exception as e:
+                print(f"Error processing row {index}: {e}")
+        
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'{inserted_records} device transactions uploaded successfully.'
+        }), 201
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    
+
 
 
 @device_transaction_bp.route('/search-device', methods=['POST'])

@@ -13,3 +13,4 @@ authlib
 requests
 apscheduler
 flask-migrate
+pandas
