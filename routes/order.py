@@ -570,7 +570,7 @@ def create_order():
             tax_percent=data.get('tax_percent', 0),
             total_amount=total_amount,
             channel=data.get('channel', 'offline'),
-            payment_status='unpaid',
+            payment_status='pending',
             order_status='APPROVED',
             fulfillment_status=data.get('fulfillment_status', False),
             delivery_status=data.get('delivery_status', 'intransit'),
