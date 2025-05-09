@@ -492,7 +492,7 @@ def get_orders():
 
 
 @order_bp.route('/orders/rejected', methods=['GET'])
-def get_orders():
+def get_orders_rejected():
 
     orders = Order.query.filter(Order.order_status == "REJECTED").order_by(Order.created_at.desc()).all()
 
