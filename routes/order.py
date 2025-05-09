@@ -1430,6 +1430,7 @@ def add_pickup_request(order_id):
                 'order_id': order.order_id,
                 'waybill': order.awb_number,
                 'upload_wbn': order.upload_wbn,
+                'fulfillment_status': True, 
                 'response': response_data
             }), 200
         except Exception as e:
