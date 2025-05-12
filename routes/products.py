@@ -2481,31 +2481,26 @@ def update_cover_image(product_id):
         return jsonify({'error': str(e)}), 400        
 
 
-@products_bp.route('/api/product-meta/<int:product_id>', methods=['GET'])
+@products_bp.route('/product-meta/<int:product_id>', methods=['GET'])
 def product_meta(product_id):
     try:
         product = Product.query.options(
             db.joinedload(Product.images)
         ).get_or_404(product_id)
         
-        # Get primary image URL and convert to absolute URL
+        # Get primary image URL with the correct /api/ prefix
         primary_image_url = ''
         if product.images and len(product.images) > 0:
-            image_url = product.images[0].image_url
+            image_path = product.images[0].image_url
             
-            # This is the key part - make sure we have the full domain in the URL
-            if not image_url.startswith(('http://', 'https://')):
-                base_url = f"https://{request.host}"  # Force https for production
-                
-                # If the image URL already starts with a slash, don't add another one
-                if image_url.startswith('/'):
-                    primary_image_url = f"{base_url}{image_url}"
-                else:
-                    primary_image_url = f"{base_url}/{image_url}"
+            # Make sure we include /api/ in the path
+            if image_path.startswith('product_images/'):
+                # Add /api/ prefix to image path if it's not already there
+                primary_image_url = f"https://mtm-store.com/api/{image_path}"
             else:
-                primary_image_url = image_url
+                # Handle other path formats
+                primary_image_url = f"https://mtm-store.com/api/{image_path.lstrip('/')}"
         
-        # For debugging
         logger.info(f"Original image URL: {product.images[0].image_url if product.images else 'None'}")
         logger.info(f"Converted image URL: {primary_image_url}")
         
@@ -2536,5 +2531,4 @@ def product_meta(product_id):
     except Exception as e:
         logger.error(f"Error generating product meta: {str(e)}")
         return "Product not found", 404
-
 
