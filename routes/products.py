@@ -1,6 +1,6 @@
 import os
 from venv import logger
-from flask import Blueprint, request, jsonify, session
+from flask import Blueprint, request, jsonify, session, render_template
 from werkzeug.utils import secure_filename
 from extensions import db
 from models.cart import CartItem
@@ -171,7 +171,16 @@ def product_detail(product_id):
                 }
                 product_dict['colors'].append(color_dict)
         
+        # 🧠 Bot detection
+        user_agent = request.headers.get('User-Agent', '').lower()
+        bots = ['facebookexternalhit', 'whatsapp', 'discordbot', 'twitterbot', 'telegrambot', 'slackbot']
+        if any(bot in user_agent for bot in bots):
+            # Provide Open Graph meta tags view
+            return render_template('templates/social_meta.html', product=product, product_dict=product_dict)
+
+        # Normal client returns JSON
         return jsonify(product_dict)
+
     
     except Exception as e:
         logger.error(f"Error getting product details: {str(e)}")
