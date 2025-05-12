@@ -2279,31 +2279,82 @@ def delete_hsn(hsn_id):
         return jsonify({'error': 'Internal server error'}), 500
 
 
+
 @products_bp.route('/product/slug/<product_slug>', methods=['GET'])
 def get_product_by_slug(product_slug):
     try:
-        # Determine if this is a preview request (non-JSON accept header)
-        is_preview_request = request.accept_mimetypes.best_match(['application/json', 'text/html']) != 'application/json'
+        # First try to find by ID if slug is numeric
+        if product_slug.isdigit():
+            product = Product.query.options(
+                db.joinedload(Product.images),
+                db.joinedload(Product.main_category),
+                db.joinedload(Product.sub_category),
+                db.joinedload(Product.hsn),
+                db.joinedload(Product.models).joinedload(ProductModel.colors).joinedload(ProductColor.images),
+                db.joinedload(Product.models).joinedload(ProductModel.specifications),
+                db.joinedload(Product.colors).joinedload(ProductColor.images)
+            ).get(product_slug)
+            if product:
+                # Use the same serialization logic as below instead of to_dict()
+                product_dict = {
+                    'product_id': product.product_id,
+                    'name': product.name,
+                    'description': product.description,
+                    'category': getattr(product.main_category, 'name', None),
+                    'subcategory': getattr(product.sub_category, 'name', None),
+                    'hsn_id': getattr(getattr(product, 'hsn', None), 'hsn_code', None),
+                    'product_type': product.product_type,
+                    'rating': product.rating,
+                    'raters': product.raters,
+                    'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in product.images],
+                    'specifications': [{'spec_id': s.spec_id, 'key': s.key, 'value': s.value} for s in product.specifications],
+                    'models': [],
+                    'colors': []
+                }
+                
+                # Add models data if exists
+                for model in product.models:
+                    model_dict = {
+                        'model_id': model.model_id,
+                        'name': model.name,
+                        'description': model.description,
+                        'colors': [],
+                        'specifications': [{'spec_id': s.spec_id, 'key': s.key, 'value': s.value} for s in model.specifications]
+                    }
+                    
+                    for color in model.colors:
+                        color_dict = {
+                            'color_id': color.color_id,
+                            'name': color.name,
+                            'stock_quantity': color.stock_quantity,
+                            'price': float(color.price),
+                            'original_price': float(color.original_price) if color.original_price else None,
+                            'threshold': color.threshold,
+                            'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in color.images]
+                        }
+                        model_dict['colors'].append(color_dict)
+                    
+                    product_dict['models'].append(model_dict)
+                
+                # Add colors for single product type
+                if product.product_type == 'single':
+                    for color in product.colors:
+                        color_dict = {
+                            'color_id': color.color_id,
+                            'name': color.name,
+                            'stock_quantity': color.stock_quantity,
+                            'price': float(color.price),
+                            'original_price': float(color.original_price) if color.original_price else None,
+                            'threshold': color.threshold,
+                            'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in color.images]
+                        }
+                        product_dict['colors'].append(color_dict)
+                
+                return jsonify(product_dict)
         
-        # Function to convert relative image path to full URL
-        def get_full_image_url(image_url):
-            if not image_url:
-                return None
-            
-            # If already a full URL, return as-is
-            if image_url.startswith(('http://', 'https://')):
-                return image_url
-            
-            # Construct full URL using current request's host
-            try:
-                host = request.host
-                return f"https://{host}/api{image_url}"
-            except RuntimeError:
-                # Fallback for scenarios outside request context
-                return f"https://mtm-store.com/api{image_url}"
-        
-        # Common query options for joined loading
-        query_options = [
+        # Otherwise search by name (with hyphens replaced by spaces)
+        name = unquote(product_slug).replace('-', ' ')
+        product = Product.query.options(
             db.joinedload(Product.images),
             db.joinedload(Product.main_category),
             db.joinedload(Product.sub_category),
@@ -2311,37 +2362,14 @@ def get_product_by_slug(product_slug):
             db.joinedload(Product.models).joinedload(ProductModel.colors).joinedload(ProductColor.images),
             db.joinedload(Product.models).joinedload(ProductModel.specifications),
             db.joinedload(Product.colors).joinedload(ProductColor.images)
-        ]
+        ).filter(
+            func.replace(Product.name, '-', ' ').ilike(f'%{name}%')
+        ).first()
         
-        # First try to find by ID if slug is numeric
-        if product_slug.isdigit():
-            product = Product.query.options(*query_options).get(product_slug)
-        else:
-            # Otherwise search by name (with hyphens replaced by spaces)
-            name = unquote(product_slug).replace('-', ' ')
-            product = Product.query.options(*query_options).filter(
-                func.replace(Product.name, '-', ' ').ilike(f'%{name}%')
-            ).first()
-        
-        # Handle product not found
         if not product:
-            if is_preview_request:
-                return render_template('product_not_found.html'), 404
             return jsonify({'error': 'Product not found'}), 404
         
-        # Prepare preview request if needed
-        if is_preview_request:
-            # Get the first image and convert to full URL
-            preview_image = get_full_image_url(product.images[0].image_url) if product.images else None
-            
-            return render_template('product_preview.html', 
-                product=product, 
-                preview_image=preview_image,
-                site_name='MTM Store',
-                description=product.description or 'Check out this amazing product!'
-            )
-        
-        # Prepare product dictionary for JSON response
+        # Use the same serialization logic as your product_detail endpoint
         product_dict = {
             'product_id': product.product_id,
             'name': product.name,
@@ -2352,21 +2380,8 @@ def get_product_by_slug(product_slug):
             'product_type': product.product_type,
             'rating': product.rating,
             'raters': product.raters,
-            'images': [
-                {
-                    'image_id': img.image_id, 
-                    'image_url': get_full_image_url(img.image_url)
-                } 
-                for img in product.images
-            ],
-            'specifications': [
-                {
-                    'spec_id': s.spec_id, 
-                    'key': s.key, 
-                    'value': s.value
-                } 
-                for s in product.specifications
-            ],
+            'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in product.images],
+            'specifications': [{'spec_id': s.spec_id, 'key': s.key, 'value': s.value} for s in product.specifications],
             'models': [],
             'colors': []
         }
@@ -2378,14 +2393,7 @@ def get_product_by_slug(product_slug):
                 'name': model.name,
                 'description': model.description,
                 'colors': [],
-                'specifications': [
-                    {
-                        'spec_id': s.spec_id, 
-                        'key': s.key, 
-                        'value': s.value
-                    } 
-                    for s in model.specifications
-                ]
+                'specifications': [{'spec_id': s.spec_id, 'key': s.key, 'value': s.value} for s in model.specifications]
             }
             
             for color in model.colors:
@@ -2396,13 +2404,7 @@ def get_product_by_slug(product_slug):
                     'price': float(color.price),
                     'original_price': float(color.original_price) if color.original_price else None,
                     'threshold': color.threshold,
-                    'images': [
-                        {
-                            'image_id': img.image_id, 
-                            'image_url': get_full_image_url(img.image_url)
-                        } 
-                        for img in color.images
-                    ]
+                    'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in color.images]
                 }
                 model_dict['colors'].append(color_dict)
             
@@ -2418,28 +2420,18 @@ def get_product_by_slug(product_slug):
                     'price': float(color.price),
                     'original_price': float(color.original_price) if color.original_price else None,
                     'threshold': color.threshold,
-                    'images': [
-                        {
-                            'image_id': img.image_id, 
-                            'image_url': get_full_image_url(img.image_url)
-                        } 
-                        for img in color.images
-                    ]
+                    'images': [{'image_id': img.image_id, 'image_url': img.image_url} for img in color.images]
                 }
                 product_dict['colors'].append(color_dict)
         
         return jsonify(product_dict)
         
     except Exception as e:
-        # Log the error
         logger.error(f"Error getting product by slug {product_slug}: {str(e)}", exc_info=True)
-        
-        # Check if it's a preview request
-        if request.accept_mimetypes.best_match(['application/json', 'text/html']) != 'application/json':
-            return render_template('error.html'), 500
-        
-        # For JSON request, return 500 error
         return jsonify({'error': str(e)}), 500
+
+
+
 
         
 # Update cover image (special case of updating the first image)

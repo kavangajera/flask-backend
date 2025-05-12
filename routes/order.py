@@ -490,6 +490,7 @@ def get_orders():
         'delivery_method': order.delivery_method,
         'awb_number': order.awb_number,
         'order_status': order.order_status,
+        'payment_type': order.payment_type,
         'created_at': order.created_at.isoformat(),
         'items': [{
             'product_id': item.product_id,
@@ -544,6 +545,8 @@ def get_orders_rejected():
         'delivery_status': order.delivery_status,
         'delivery_method': order.delivery_method,
         'awb_number': order.awb_number,
+        'order_status': order.order_status,
+        'payment_type': order.payment_type,
         'created_at': order.created_at.isoformat(),
         'items': [{
             'product_id': item.product_id,
@@ -637,6 +640,7 @@ def create_order():
             channel=data.get('channel', 'offline'),
             payment_status='pending',
             order_status='APPROVED',
+            payment_type=data.get('payment_type', 'cod'),
             fulfillment_status=data.get('fulfillment_status', False),
             delivery_status=data.get('delivery_status', 'intransit'),
             delivery_method=data.get('delivery_method', 'shipping'),
@@ -772,6 +776,7 @@ def place_order():
             total_amount=total_amount,
             channel='online',  # Hardcoded for this endpoint
             payment_status=data['payment_status'],
+            payment_type=data.get('payment_type', 'cod'),
             fulfillment_status=False,
             delivery_status='pending',
             delivery_method=data['delivery_method'],
@@ -890,6 +895,8 @@ def place_order():
                 'tax_percent': float(order.tax_percent),
                 'total_amount': float(order.total_amount),
                 'payment_status': order.payment_status,
+                'fulfillment_status': order.fulfillment_status,
+                'payment_type': order.payment_type,
                 'delivery_method': order.delivery_method,
                 'created_at': order.created_at.isoformat(),
                 'items': [{
@@ -941,6 +948,7 @@ def get_order_items_expanded(order_id):
             'subtotal': float(order.subtotal),
             'total_amount': float(order.total_amount),
             'payment_status': order.payment_status,
+            'payment_type': order.payment_type,
             'fulfillment_status': order.fulfillment_status,
             'delivery_status': order.delivery_status,
             'created_at': order.created_at.isoformat(),
@@ -1025,6 +1033,7 @@ def get_order_details_expanded(order_id):
             'delivery_status': order.delivery_status,
             'created_at': order.created_at.isoformat(),
             'awb_number': order.awb_number,
+            'payment_type': order.payment_type,
             'upload_wbn': order.upload_wbn,
             'address': address_data,
             'details': expanded_details
