@@ -1,6 +1,6 @@
 import os
 from venv import logger
-from flask import Blueprint, request, jsonify, session, render_template
+from flask import Blueprint, request, jsonify, session
 from werkzeug.utils import secure_filename
 from extensions import db
 from models.cart import CartItem
@@ -100,7 +100,6 @@ def list_products():
         return jsonify({'error': str(e)}), 500
         
 # Get product details by product_id
-# Get product details by product_id
 @products_bp.route('/product/<int:product_id>', methods=['GET'])
 def product_detail(product_id):
     try:
@@ -157,6 +156,7 @@ def product_detail(product_id):
         
         # Add single product specific info
         if product.product_type == 'single':
+         
             product_dict['colors'] = []
             
             for color in product.colors:
@@ -171,45 +171,6 @@ def product_detail(product_id):
                 }
                 product_dict['colors'].append(color_dict)
         
-        # Bot detection - IMPROVED DETECTION
-        user_agent = request.headers.get('User-Agent', '').lower()
-        bots = ['facebookexternalhit', 'whatsapp', 'discord', 'twitter', 'telegram', 'slack', 'bot', 'preview']
-        
-        is_bot = any(bot in user_agent for bot in bots)
-        
-        # Debug logging for bot detection
-        logger.info(f"User-Agent: {user_agent}")
-        logger.info(f"Is bot: {is_bot}")
-        
-        if is_bot:
-            # Get primary image URL
-            primary_image_url = ''
-            if product_dict['images'] and len(product_dict['images']) > 0:
-                primary_image_url = product_dict['images'][0]['image_url']
-            
-            # Provide Open Graph meta tags view - DIRECT RENDERING, NOT TEMPLATE
-            meta_html = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta property="og:title" content="{product.name}">
-    <meta property="og:description" content="{product.description}">
-    <meta property="og:image" content="{primary_image_url}">
-    <meta property="og:type" content="product">
-    <meta property="og:url" content="{request.url}">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="{product.name}">
-    <meta name="twitter:description" content="{product.description}">
-    <meta name="twitter:image" content="{primary_image_url}">
-    <title>{product.name}</title>
-</head>
-<body>
-    <p>{product.name} - {product.description}</p>
-</body>
-</html>"""
-            return meta_html
-
-        # Normal client returns JSON
         return jsonify(product_dict)
     
     except Exception as e:
@@ -2519,5 +2480,56 @@ def update_cover_image(product_id):
         db.session.rollback()
         return jsonify({'error': str(e)}), 400        
 
-        return jsonify({'error': str(e)}), 500
+
+@products_bp.route('/product-meta/<int:product_id>', methods=['GET'])
+def product_meta(product_id):
+    try:
+        product = Product.query.options(
+            db.joinedload(Product.images)
+        ).get_or_404(product_id)
+        
+        # Get primary image URL and convert to absolute URL if needed
+        primary_image_url = ''
+        if product.images and len(product.images) > 0:
+            image_url = product.images[0].image_url
+            
+            # Convert relative URL to absolute URL if needed
+            if not image_url.startswith(('http://', 'https://')):
+                base_url = request.host_url.rstrip('/')  # Get base URL without trailing slash
+                primary_image_url = f"{base_url}{image_url if image_url.startswith('/') else '/' + image_url}"
+            else:
+                primary_image_url = image_url
+        
+        # For debugging
+        logger.info(f"Original image URL: {product.images[0].image_url if product.images else 'None'}")
+        logger.info(f"Converted image URL: {primary_image_url}")
+        
+        # Direct HTML rendering for meta tags
+        meta_html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta property="og:title" content="{product.name}">
+    <meta property="og:description" content="{product.description}">
+    <meta property="og:image" content="{primary_image_url}">
+    <meta property="og:type" content="product">
+    <meta property="og:url" content="https://mtm-store.com/products/{product.product_id}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{product.name}">
+    <meta name="twitter:description" content="{product.description}">
+    <meta name="twitter:image" content="{primary_image_url}">
+    <title>{product.name}</title>
+</head>
+<body>
+    <h1>{product.name}</h1>
+    <p>{product.description}</p>
+    <img src="{primary_image_url}" alt="{product.name}" />
+</body>
+</html>"""
+        return meta_html, 200, {'Content-Type': 'text/html; charset=utf-8'}
+    
+    except Exception as e:
+        logger.error(f"Error generating product meta: {str(e)}")
+        return "Product not found", 404
+
 
