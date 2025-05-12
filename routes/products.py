@@ -100,6 +100,7 @@ def list_products():
         return jsonify({'error': str(e)}), 500
         
 # Get product details by product_id
+# Get product details by product_id
 @products_bp.route('/product/<int:product_id>', methods=['GET'])
 def product_detail(product_id):
     try:
@@ -156,7 +157,6 @@ def product_detail(product_id):
         
         # Add single product specific info
         if product.product_type == 'single':
-         
             product_dict['colors'] = []
             
             for color in product.colors:
@@ -171,16 +171,46 @@ def product_detail(product_id):
                 }
                 product_dict['colors'].append(color_dict)
         
-        # 🧠 Bot detection
+        # Bot detection - IMPROVED DETECTION
         user_agent = request.headers.get('User-Agent', '').lower()
-        bots = ['facebookexternalhit', 'whatsapp', 'discordbot', 'twitterbot', 'telegrambot', 'slackbot']
-        if any(bot in user_agent for bot in bots):
-            # Provide Open Graph meta tags view
-            return render_template('templates/social_meta.html', product=product, product_dict=product_dict)
+        bots = ['facebookexternalhit', 'whatsapp', 'discord', 'twitter', 'telegram', 'slack', 'bot', 'preview']
+        
+        is_bot = any(bot in user_agent for bot in bots)
+        
+        # Debug logging for bot detection
+        logger.info(f"User-Agent: {user_agent}")
+        logger.info(f"Is bot: {is_bot}")
+        
+        if is_bot:
+            # Get primary image URL
+            primary_image_url = ''
+            if product_dict['images'] and len(product_dict['images']) > 0:
+                primary_image_url = product_dict['images'][0]['image_url']
+            
+            # Provide Open Graph meta tags view - DIRECT RENDERING, NOT TEMPLATE
+            meta_html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta property="og:title" content="{product.name}">
+    <meta property="og:description" content="{product.description}">
+    <meta property="og:image" content="{primary_image_url}">
+    <meta property="og:type" content="product">
+    <meta property="og:url" content="{request.url}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{product.name}">
+    <meta name="twitter:description" content="{product.description}">
+    <meta name="twitter:image" content="{primary_image_url}">
+    <title>{product.name}</title>
+</head>
+<body>
+    <p>{product.name} - {product.description}</p>
+</body>
+</html>"""
+            return meta_html
 
         # Normal client returns JSON
         return jsonify(product_dict)
-
     
     except Exception as e:
         logger.error(f"Error getting product details: {str(e)}")
