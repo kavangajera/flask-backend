@@ -2481,22 +2481,27 @@ def update_cover_image(product_id):
         return jsonify({'error': str(e)}), 400        
 
 
-@products_bp.route('/product-meta/<int:product_id>', methods=['GET'])
+@products_bp.route('/api/product-meta/<int:product_id>', methods=['GET'])
 def product_meta(product_id):
     try:
         product = Product.query.options(
             db.joinedload(Product.images)
         ).get_or_404(product_id)
         
-        # Get primary image URL and convert to absolute URL if needed
+        # Get primary image URL and convert to absolute URL
         primary_image_url = ''
         if product.images and len(product.images) > 0:
             image_url = product.images[0].image_url
             
-            # Convert relative URL to absolute URL if needed
+            # This is the key part - make sure we have the full domain in the URL
             if not image_url.startswith(('http://', 'https://')):
-                base_url = request.host_url.rstrip('/')  # Get base URL without trailing slash
-                primary_image_url = f"{base_url}{image_url if image_url.startswith('/') else '/' + image_url}"
+                base_url = f"https://{request.host}"  # Force https for production
+                
+                # If the image URL already starts with a slash, don't add another one
+                if image_url.startswith('/'):
+                    primary_image_url = f"{base_url}{image_url}"
+                else:
+                    primary_image_url = f"{base_url}/{image_url}"
             else:
                 primary_image_url = image_url
         
