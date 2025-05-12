@@ -2532,3 +2532,71 @@ def product_meta(product_id):
         logger.error(f"Error generating product meta: {str(e)}")
         return "Product not found", 404
 
+
+@products_bp.route('/products/<string:product_slug>', methods=['GET'])
+def product_slug_meta(product_slug):
+    try:
+        # Use the same logic as your get_product_by_slug endpoint to find the product
+        # First, try to handle special characters and formatting
+        name = unquote(product_slug).replace('-', ' ')
+        
+        product = Product.query.options(
+            db.joinedload(Product.images),
+            db.joinedload(Product.main_category),
+            db.joinedload(Product.sub_category),
+            db.joinedload(Product.hsn),
+            db.joinedload(Product.models).joinedload(ProductModel.colors).joinedload(ProductColor.images),
+            db.joinedload(Product.models).joinedload(ProductModel.specifications),
+            db.joinedload(Product.colors).joinedload(ProductColor.images)
+        ).filter(
+            func.replace(Product.name, '-', ' ').ilike(f'%{name}%')
+        ).first()
+        
+        if not product:
+            return "Product not found", 404
+        
+        # Get primary image URL with the correct /api/ prefix
+        primary_image_url = ''
+        if product.images and len(product.images) > 0:
+            image_path = product.images[0].image_url
+            
+            # Make sure we include /api/ in the path
+            if image_path.startswith('product_images/'):
+                # Add /api/ prefix to image path if it's not already there
+                primary_image_url = f"https://mtm-store.com/api/{image_path}"
+            else:
+                # Handle other path formats
+                primary_image_url = f"https://mtm-store.com/api/{image_path.lstrip('/')}"
+        
+        logger.info(f"Slug: {product_slug}")
+        logger.info(f"Product ID: {product.product_id}")
+        logger.info(f"Converted image URL: {primary_image_url}")
+        
+        # Direct HTML rendering for meta tags
+        meta_html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta property="og:title" content="{product.name}">
+    <meta property="og:description" content="{product.description}">
+    <meta property="og:image" content="{primary_image_url}">
+    <meta property="og:type" content="product">
+    <meta property="og:url" content="https://mtm-store.com/products/{product_slug}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{product.name}">
+    <meta name="twitter:description" content="{product.description}">
+    <meta name="twitter:image" content="{primary_image_url}">
+    <meta name="description" content="{product.description}">
+    <title>{product.name}</title>
+</head>
+<body>
+    <h1>{product.name}</h1>
+    <p>{product.description}</p>
+    <img src="{primary_image_url}" alt="{product.name}" />
+</body>
+</html>"""
+        return meta_html, 200, {'Content-Type': 'text/html; charset=utf-8'}
+    
+    except Exception as e:
+        logger.error(f"Error generating product meta for slug {product_slug}: {str(e)}")
+        return "Product not found", 404
