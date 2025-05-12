@@ -154,7 +154,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://mtm_user:Pass%402025%23
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Security configurations
-app.config['JWT_SECRET_KEY'] = secrets.token_hex(32)
+app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', secrets.token_hex(32))
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=1)
 
 # Initialize extensions
