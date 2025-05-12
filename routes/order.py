@@ -13,6 +13,17 @@ from datetime import datetime
 import os
 import requests
 import json
+from email.mime.text import MIMEText
+import smtplib
+from dotenv import load_dotenv
+
+load_dotenv()
+
+SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.example.com")  # Replace with your SMTP server or environment variable
+SMTP_PORT = int(os.getenv("SMTP_PORT", 587))  # Default to 587 if not set
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "default_password")
+SMTP_USERNAME = os.getenv("SMTP_USERNAME", "default@example.com")  # Replace with your default or environment variable
+
 
 
 from middlewares.auth import token_required
@@ -478,6 +489,7 @@ def get_orders():
         'delivery_status': order.delivery_status,
         'delivery_method': order.delivery_method,
         'awb_number': order.awb_number,
+        'order_status': order.order_status,
         'created_at': order.created_at.isoformat(),
         'items': [{
             'product_id': item.product_id,
@@ -764,8 +776,7 @@ def place_order():
             delivery_status='pending',
             delivery_method=data['delivery_method'],
             awb_number=data.get('awb_number'),
-            created_at=current_date,
-            order_status="PENDING"
+            created_at=current_date
         )
         
         # Manually set the order_id with the expected format (do not rely on __init__)
@@ -811,9 +822,6 @@ def place_order():
                 unit_price=unit_price,
                 total_price=cart_item.total_item_price
             )
-
-            
-                
             
             db.session.add(order_item)
             db.session.flush()  # Get item_id
@@ -837,6 +845,37 @@ def place_order():
         cart.total_cart_price = 0
         
         db.session.commit()
+
+
+        try:
+            subject = f"New Order Placed: {order.order_id}"
+            body = f"""
+            A new order has been placed with the following details:
+            
+            Order ID: {order.order_id}
+            Customer ID: {customer_id}
+            Total Items: {order.total_items}
+            Subtotal: {order.subtotal}
+            Total Amount: {order.total_amount}
+            Payment Status: {order.payment_status}
+            Delivery Method: {order.delivery_method}
+            
+            Please review the order in the admin panel.
+            """
+            
+            msg = MIMEText(body)
+            msg['Subject'] = subject
+            msg['From'] = SMTP_USERNAME
+            msg['To'] = 'sodagaramaan78692@gmail.com'
+            
+            with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+                server.starttls()
+                server.login(SMTP_USERNAME, SMTP_PASSWORD)
+                server.send_message(msg)
+        except Exception as email_error:
+            print(f"Failed to send admin notification email: {email_error}")
+            # Don't fail the order if email fails
+        
         
         return jsonify({
             'success': True,
@@ -1183,6 +1222,7 @@ def add_to_order():
         
         # Current date for order_id generation
         current_date = datetime.now()
+        current_year = current_date.year
         
         # Create new order with explicit order_index
         order = Order(
@@ -1205,9 +1245,10 @@ def add_to_order():
         )
         
         # Manually set the order_id with the expected format
-        date_str = current_date.strftime('%d-%m-%Y')
-        order.order_id = f"{date_str}#{next_order_index}"
-        
+        next_year = current_year + 1
+        next_year = str(next_year)
+        current_year = str(current_year)    
+        order.order_id = f"{current_year}{next_year[2:]}#{next_order_index}"
         db.session.add(order)
         db.session.flush()
         
@@ -1250,6 +1291,38 @@ def add_to_order():
                     return jsonify({'error': f'Not enough stock for product {product.name}'}), 400
         
         db.session.commit()
+
+
+        # Send email notification to admin after successful order placement
+        try:
+            subject = f"New Direct Order Placed: {order.order_id}"
+            body = f"""
+            A new direct order has been placed with the following details:
+            
+            Order ID: {order.order_id}
+            Customer ID: {customer_id}
+            Product ID: {data['product_id']}
+            Quantity: {data['quantity']}
+            Total Amount: {order.total_amount}
+            Payment Status: {order.payment_status}
+            Delivery Method: {order.delivery_method}
+            
+            Please review the order in the admin panel.
+            """
+            
+            msg = MIMEText(body)
+            msg['Subject'] = subject
+            msg['From'] = SMTP_USERNAME
+            msg['To'] = 'meetkoladiya6753@gmail.com'
+            
+            
+            with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+                server.starttls()
+                  # Replace "default_password" with a secure fallback or environment variable
+                server.login(SMTP_USERNAME, SMTP_PASSWORD)
+                server.send_message(msg)
+        except Exception as email_error:
+            print(f"Failed to send admin notification email: {email_error}")
         
         return jsonify({
             'success': True,
@@ -1515,7 +1588,9 @@ def track_order(order_id):
            return response.json()
        except requests.exceptions.RequestException as e:
         return {'error': str(e)}
-@order_bp.route('/approve-order/<path:order_id>',methods=['GET'])
+       
+       
+@order_bp.route('/approve-order/<string:order_id>', methods=['GET'])
 @token_required(roles=['admin'])
 def approve_order(order_id):
     try:
@@ -1523,27 +1598,120 @@ def approve_order(order_id):
         if not order:
             return jsonify({'error': 'Order not found'}), 404
         
+        # Get customer email
+        customer = None
+        if order.customer_id:
+            customer = Customer.query.get(order.customer_id)
+        elif order.offline_customer_id:
+            # Handle offline customer if needed
+            pass
+            
+        if not customer:
+            return jsonify({'error': 'Customer not found'}), 404
+        
         order.order_status = "APPROVED"
-        db.session.add(order)  # Optional for updates, but safe
-        db.session.commit()    # Save the changes
+        db.session.commit()
+        
+        # Send approval email to customer
+        try:
+            subject = f"Your Order #{order_id} Has Been Approved"
+            body = f"""
+            Dear {customer.name},
+            
+            We're pleased to inform you that your order #{order_id} has been approved and is being processed.
+            
+            Order Details:
+            - Order ID: {order_id}
+            - Total Amount: {order.total_amount}
+            - Status: Approved
+            
+            Thank you for shopping with us!
+            
+            Best regards,
+            Your Store Team
+            """
+            
+            msg = MIMEText(body)
+            msg['Subject'] = subject
+            msg['From'] = SMTP_USERNAME
+            msg['To'] = customer.email
+            
+            with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+                server.starttls()
+                server.login(SMTP_USERNAME, SMTP_PASSWORD)
+                server.send_message(msg)
+        except Exception as email_error:
+            print(f"Failed to send approval email: {email_error}")
+            # Continue even if email fails
         
         return jsonify({'message': 'Order approved successfully'}), 200
     except Exception as e:
-        db.session.rollback()  # Roll back in case of error
+        db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-@order_bp.route('/reject-order/<path:order_id>', methods=['DELETE'])
+
+
+
+
+
+@order_bp.route('/reject-order/<string:order_id>', methods=['DELETE'])
 @token_required(roles=['admin'])
 def reject_order(order_id):
     try:
+        # Fetch the order
         order = Order.query.filter_by(order_id=order_id).first()
         if not order:
             return jsonify({'error': 'Order not found'}), 404
 
-        order.order_status="REJECTED"
+        # Fetch the customer
+        customer = None
+        if order.customer_id:
+            customer = Customer.query.get(order.customer_id)
+        elif order.offline_customer_id:
+            # Handle offline customer logic if applicable
+            pass
+
+        if not customer:
+            return jsonify({'error': 'Customer not found'}), 404
+
+        # Update order status to REJECTED (soft delete)
+        order.order_status = "REJECTED"
         db.session.commit()
 
-        return jsonify({'message': 'Order deleted (rejected) successfully'}), 200
+        # Send rejection email to customer
+        try:
+            subject = f"Your Order #{order_id} Has Been Rejected"
+            body = f"""
+            Dear {customer.name},
+            
+            We regret to inform you that your order #{order_id} has been rejected.
+            
+            Order Details:
+            - Order ID: {order_id}
+            - Total Amount: {order.total_amount}
+            - Status: Rejected
+            
+            If you believe this was a mistake or have any questions, please contact our support team.
+            
+            Best regards,
+            Your Store Team
+            """
+            
+            msg = MIMEText(body)
+            msg['Subject'] = subject
+            msg['From'] = SMTP_USERNAME
+            msg['To'] = customer.email
+
+            with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+                server.starttls()
+                server.login(SMTP_USERNAME, SMTP_PASSWORD)
+                server.send_message(msg)
+        except Exception as email_error:
+            print(f"Failed to send rejection email: {email_error}")
+            # Continue even if email fails
+
+        return jsonify({'message': 'Order rejected successfully'}), 200
+
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500

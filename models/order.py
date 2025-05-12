@@ -26,8 +26,7 @@ class Order(db.Model):
     delivery_method = db.Column(db.String(20), default='shipping')
     awb_number = db.Column(db.String(50), nullable=True)
     upload_wbn = db.Column(db.String(50), nullable=True)
-
-    order_status = db.Column(db.String(10), default="PENDING")
+    order_status = db.Column(db.String(10), default="PENDING")    
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -56,6 +55,8 @@ class Order(db.Model):
     offline_customer = db.relationship('OfflineCustomer', back_populates='orders')
     address = db.relationship('Address', back_populates='orders')
     items = db.relationship('OrderItem', back_populates='order', cascade="all, delete-orphan")
+    details = db.relationship('OrderDetail', back_populates='order', cascade="all, delete-orphan", passive_deletes=True)
+
 
 class OrderItem(db.Model):
     __tablename__ = 'order_items'
@@ -75,6 +76,8 @@ class OrderItem(db.Model):
     model = db.relationship('ProductModel', backref='order_items')
     color = db.relationship('ProductColor', backref='order_items')
     serial_numbers = db.relationship('SerialNumber', back_populates='order_item', cascade="all, delete-orphan")
+    details = db.relationship('OrderDetail', back_populates='item', cascade="all, delete-orphan", passive_deletes=True)
+
 
 class SerialNumber(db.Model):
     __tablename__ = 'serial_numbers'
@@ -96,7 +99,7 @@ class OrderDetail(db.Model):
     order_id = db.Column(db.String(30), db.ForeignKey('orders.order_id', ondelete='CASCADE'), nullable=False)  # Increased length
     product_id = db.Column(db.Integer, db.ForeignKey('products.product_id', ondelete='CASCADE'), nullable=False)
     
-    # Relationships
-    item = db.relationship('OrderItem', backref='details')
-    order = db.relationship('Order', backref='details')
+   # Fixed relationships
+    item = db.relationship('OrderItem', back_populates='details')
+    order = db.relationship('Order', back_populates='details')
     product = db.relationship('Product', backref='order_details')
