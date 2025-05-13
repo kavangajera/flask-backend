@@ -2606,7 +2606,7 @@ def product_meta(product_id):
 #         return "Product not found", 404
 
 
-@products_bp.route('api/products/<string:product_slug>', methods=['GET'])
+@products_bp.route('/products/<string:product_slug>', methods=['GET'])
 def product_slug_meta(product_slug):
     try:
         # Your existing product query logic
