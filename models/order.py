@@ -104,3 +104,18 @@ class OrderDetail(db.Model):
     item = db.relationship('OrderItem', back_populates='details')
     order = db.relationship('Order', back_populates='details')
     product = db.relationship('Product', backref='order_details')
+
+
+class OrderStatusHistory(db.Model):
+    __tablename__ = 'order_status_history'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(db.String(30), db.ForeignKey('orders.order_id'))
+    changed_by = db.Column(db.String(50))  # or db.Text if longer
+    from_status = db.Column(db.String(255))  # Previous states
+    to_status = db.Column(db.String(255))    # New states
+    change_reason = db.Column(db.String(255))
+    changed_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationship
+    order = db.relationship('Order', backref='status_history')
