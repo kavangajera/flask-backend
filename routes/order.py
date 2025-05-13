@@ -13,17 +13,16 @@ from datetime import datetime
 import os
 import requests
 import json
-from email.mime.text import MIMEText
 import smtplib
-from dotenv import load_dotenv
+from email.mime.text import MIMEText
 
-load_dotenv()
-
-SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.example.com")  # Replace with your SMTP server or environment variable
-SMTP_PORT = int(os.getenv("SMTP_PORT", 587))  # Default to 587 if not set
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "default_password")
-SMTP_USERNAME = os.getenv("SMTP_USERNAME", "default@example.com")  # Replace with your default or environment variable
-
+# Email configuration (replace with your SMTP details)
+SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
+SMTP_PORT = int(os.getenv('SMTP_PORT', 587))
+# SMTP_USERNAME = os.getenv('SMTP_USERNAME', 'sodagaramaan786@gmail.com')
+# SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', 'gsin qzbq xuqw qihp')
+SMTP_USERNAME = os.getenv('SMTP_USERNAME' , 'info@aesasolutions.com')
+SMTP_PASSWORD = os.getenv('SMTP_PASSWORD' , 'xgha wzcd bxnw nfnm')
 
 
 from middlewares.auth import token_required
@@ -446,11 +445,8 @@ def clear_cart():
 
 
 
-
-
 @order_bp.route('/orders', methods=['GET'])
 def get_orders():
-
     orders = Order.query.filter(Order.order_status != "REJECTED").order_by(Order.created_at.desc()).all()
 
     return jsonify([{
@@ -474,8 +470,7 @@ def get_orders():
             'address_type': order.address.address_type,
             'latitude': order.address.latitude,
             'longitude': order.address.longitude,
-            'is_available': order.address.is_available  # ✅ Added this line
-
+            'is_available': order.address.is_available
         },
         'total_items': order.total_items,
         'subtotal': float(order.subtotal),
@@ -489,7 +484,7 @@ def get_orders():
         'delivery_status': order.delivery_status,
         'delivery_method': order.delivery_method,
         'awb_number': order.awb_number,
-        'order_status': order.order_status,
+        'order_status': order.order_status,  # ✅ Added this line
         'payment_type': order.payment_type,
         'created_at': order.created_at.isoformat(),
         'items': [{
@@ -504,8 +499,10 @@ def get_orders():
     } for order in orders])
 
 
+
+
 @order_bp.route('/orders/rejected', methods=['GET'])
-def get_orders_rejected():
+def get_rejected_orders():
 
     orders = Order.query.filter(Order.order_status == "REJECTED").order_by(Order.created_at.desc()).all()
 
@@ -698,6 +695,8 @@ def create_order():
     except SQLAlchemyError as e:
         db.session.rollback()
         return jsonify({'error': f'Database error: {str(e)}'}), 500
+
+
 
 
 
@@ -913,6 +912,8 @@ def place_order():
         db.session.rollback()
         return jsonify({'error': f'Error creating order: {str(e)}'}), 500
 
+
+
 @order_bp.route('/orders/<string:order_id>/items-expanded', methods=['GET'])
 def get_order_items_expanded(order_id):
     try:
@@ -948,8 +949,8 @@ def get_order_items_expanded(order_id):
             'subtotal': float(order.subtotal),
             'total_amount': float(order.total_amount),
             'payment_status': order.payment_status,
-            'payment_type': order.payment_type,
             'fulfillment_status': order.fulfillment_status,
+            'payment_type': order.payment_type,
             'delivery_status': order.delivery_status,
             'created_at': order.created_at.isoformat(),
             'items': expanded_items
@@ -959,7 +960,6 @@ def get_order_items_expanded(order_id):
         print(f"Error in get_order_items_expanded: {str(e)}")
         return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
     
-
 
 @order_bp.route('/orders/<string:order_id>/details-expanded', methods=['GET'])
 def get_order_details_expanded(order_id):
@@ -1044,40 +1044,8 @@ def get_order_details_expanded(order_id):
         return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
 
 
-# @order_bp.route('/orders/save-sr-numbers', methods=['POST'])
-# def save_serial_numbers():
-#     try:
-#         data = request.get_json()
-        
-#         # Validate request data
-#         if not data or not isinstance(data, list):
-#             return jsonify({'error': 'Invalid request data format'}), 400
-        
-#         # Process each serial number
-#         for sr_data in data:
-#             # Find the order detail record
-#             detail = OrderDetail.query.get(sr_data['detail_id'])
-#             if not detail:
-#                 continue  # Skip if detail not found
-                
-#             # Update the SR number only in OrderDetail
-#             detail.sr_no = sr_data['sr_no']
-#             db.session.add(detail)
-        
-#         db.session.commit()
-        
-#         return jsonify({
-#             'success': True,
-#             'message': 'Serial numbers saved successfully to OrderDetail'
-#         })
-        
-#     except Exception as e:
-#         db.session.rollback()
-#         print(f"Error saving serial numbers: {str(e)}")
-#         return jsonify({
-#             'error': 'Failed to save serial numbers',
-#             'details': str(e)
-#         }), 500
+
+
 
 
 @order_bp.route('/orders/save-sr-numbers', methods=['POST'])
@@ -1232,7 +1200,6 @@ def add_to_order():
         # Current date for order_id generation
         current_date = datetime.now()
         current_year = current_date.year
-        
         # Create new order with explicit order_index
         order = Order(
             order_index=next_order_index,
@@ -1253,11 +1220,12 @@ def add_to_order():
             created_at=current_date
         )
         
-        # Manually set the order_id with the expected format
+        # Manually set the order_id with the expected format (do not rely on __init__)
         next_year = current_year + 1
         next_year = str(next_year)
         current_year = str(current_year)    
         order.order_id = f"{current_year}{next_year[2:]}#{next_order_index}"
+        
         db.session.add(order)
         db.session.flush()
         
@@ -1324,10 +1292,8 @@ def add_to_order():
             msg['From'] = SMTP_USERNAME
             msg['To'] = 'meetkoladiya6753@gmail.com'
             
-            
             with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
                 server.starttls()
-                  # Replace "default_password" with a secure fallback or environment variable
                 server.login(SMTP_USERNAME, SMTP_PASSWORD)
                 server.send_message(msg)
         except Exception as email_error:
@@ -1382,6 +1348,7 @@ def get_customer_orders(customer_id):
             'total_amount': float(order.total_amount),
             'payment_status': order.payment_status,
             'delivery_status': order.delivery_status,
+            'order_status': order.order_status,
             'created_at': order.created_at.isoformat(),
             'item_count': order.total_items
         } for order in orders])
@@ -1429,6 +1396,7 @@ def get_order_items(order_id):
             'items': items,
             'delivery_status': order.delivery_status,
             'payment_status': order.payment_status,
+            'order_status': order.order_status,  
             'total_amount': float(order.total_amount),
             'total_items': order.total_items
         })
@@ -1437,7 +1405,8 @@ def get_order_items(order_id):
         return jsonify({'error': str(e)}), 500
 
 
-@order_bp.route('/order/<path:order_id>/add-pickup-req', methods=['PUT'])
+
+@order_bp.route('/order/<string:order_id>/add-pickup-req', methods=['PUT'])
 @token_required(roles=['admin'])      
 def add_pickup_request(order_id):
     """Add a pickup request for an order to Delhivery API
@@ -1445,7 +1414,6 @@ def add_pickup_request(order_id):
     Takes an order ID and creates a pickup request with the Delhivery API
     """
     try:
-        
         print(order_id)
         order = Order.query.filter_by(order_id=order_id).first()
         
@@ -1509,35 +1477,30 @@ def add_pickup_request(order_id):
         # Prepare the full request payload for Delhivery API
         payload = {
             "pickup_location": {
-            "name": "mTm2",
-            "add": "Address Line",
-            "city": "City",
-            "state": "State",
-            "country": "India",
-            "pin": "110001",
-            "phone": "9999999999"
+                "name": "mTm2",
+                "add": "Address Line",
+                "city": "City",
+                "state": "State",
+                "country": "India",
+                "pin": "110001",
+                "phone": "9999999999"
             },
             "shipments": [shipment_data]
         }
         
         # Send request to Delhivery API
-
-        
         DELHIVERY_KEY = os.getenv("DELHIVERY_KEY")
-
         url = "https://track.delhivery.com/api/cmu/create.json"
-
         headers = {
             "Authorization": "Token "+DELHIVERY_KEY
         }
-
 
         response = requests.post(
             url,
             headers=headers,
             data={
-                    'data': json.dumps(payload),
-                    'format': 'json'  # ✅ Important to add this
+                'data': json.dumps(payload),
+                'format': 'json'  # ✅ Important to add this
             }
         )
 
@@ -1546,7 +1509,7 @@ def add_pickup_request(order_id):
 
         response_data = response.json()
         
-        # Update the order with waybill and upload_wbn from the response
+        # Update the order with waybill, upload_wbn and fulfillment_status
         try:
             if 'waybill' in response_data['packages'][0]:
                 order.awb_number = response_data['packages'][0].get('waybill')
@@ -1554,8 +1517,9 @@ def add_pickup_request(order_id):
             if 'upload_wbn' in response_data:
                 order.upload_wbn = response_data['upload_wbn']
                 
-            # Set delivery status to processing or another appropriate status
+            # Set delivery status to processing and fulfillment status to True
             order.delivery_status = 'processing'
+            order.fulfillment_status = True  # This is the key change you wanted
             
             # Save changes to database
             db.session.commit()
@@ -1565,18 +1529,19 @@ def add_pickup_request(order_id):
                 'order_id': order.order_id,
                 'waybill': order.awb_number,
                 'upload_wbn': order.upload_wbn,
-                'fulfillment_status': True, 
+                'fulfillment_status': True,  # Added to response
+                'delhivery_payload_sent': payload,   # ⬅️ Add this line
                 'response': response_data
             }), 200
         except Exception as e:
             db.session.rollback()
-            return jsonify({'error': f'Failed to update order with waybill: {str(e)}'}), 500
+            return jsonify({'error': f'Failed to update order: {str(e)}'}), 500
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     
 
-@order_bp.route('/order/<path:order_id>/track',methods=['GET'])
+@order_bp.route('/order/<string:order_id>/track',methods=['GET'])
 @token_required(roles=['customer'])
 def track_order(order_id):
 
@@ -1598,7 +1563,8 @@ def track_order(order_id):
        except requests.exceptions.RequestException as e:
         return {'error': str(e)}
        
-       
+
+
 @order_bp.route('/approve-order/<string:order_id>', methods=['GET'])
 @token_required(roles=['admin'])
 def approve_order(order_id):
@@ -1657,10 +1623,6 @@ def approve_order(order_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
-
-
-
-
 
 
 @order_bp.route('/reject-order/<string:order_id>', methods=['DELETE'])
@@ -1724,6 +1686,9 @@ def reject_order(order_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+
+
 
 @order_bp.route('/update-payment-status/<path:order_id>', methods=['PUT'])
 @token_required(roles=['admin'])

@@ -128,8 +128,8 @@ from flask_migrate import Migrate
 app = Flask(__name__)
 load_dotenv()
 
-client_id = '182391272459-t6b4m3cu5n0t17fjd1viglrbgnfsblpb.apps.googleusercontent.com'
-client_secret = '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'
+client_id = os.getenv('GOOGLE_CLIENT_ID')
+client_secret = os.getenv('GOOGLE_CLIENT_SECRET')
 # Generate a secure secret key
 # app.config['SECRET_KEY'] = secrets.token_hex(32)
 
