@@ -1213,6 +1213,7 @@ def add_to_order():
             total_amount=total_amount,
             channel='online',
             payment_status=data['payment_status'],
+            payment_type=data.get('payment_type', 'cod'),
             fulfillment_status=False,
             delivery_status='pending',
             delivery_method=data['delivery_method'],
@@ -1797,6 +1798,14 @@ def track_order(order_id):
            url = f"https://track.delhivery.com/api/v1/packages/json/?waybill={waybill}&token={DELHIVERY_KEY}"
 
            response = requests.get(url)
+           shipment_status = response["ShipmentData"][0]["Shipment"]["Status"]["Status"]
+           
+           if(shipment_status=='In Transit'):
+               order.delivery_status='Shipped'
+           elif(shipment_status=='Delivered'):
+                order.delivery_status='Delivered'
+
+           
            response.raise_for_status()  # Raises HTTPError for bad responses (4xx/5xx)
            return response.json()
        except requests.exceptions.RequestException as e:
