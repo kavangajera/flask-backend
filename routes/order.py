@@ -1798,15 +1798,15 @@ def track_order(order_id):
            url = f"https://track.delhivery.com/api/v1/packages/json/?waybill={waybill}&token={DELHIVERY_KEY}"
 
            response = requests.get(url)
-           shipment_status = response["ShipmentData"][0]["Shipment"]["Status"]["Status"]
-           
-           if(shipment_status=='In Transit'):
-               order.delivery_status='Shipped'
-           elif(shipment_status=='Delivered'):
-                order.delivery_status='Delivered'
-
-           
-           response.raise_for_status()  # Raises HTTPError for bad responses (4xx/5xx)
-           return response.json()
+           data = response.json()
+           shipment_status = data.get("ShipmentData", [{}])[0].get("Shipment", {}).get("Status", {}).get("Status", "")
+           if shipment_status == 'In Transit':
+                order.delivery_status = 'Shipped'
+           elif shipment_status == 'Delivered':
+               order.delivery_status = 'Delivered'
+           db.session.add(order)
+           db.session.commit()
+           return jsonify(data)
+       
        except requests.exceptions.RequestException as e:
         return {'error': str(e)}
