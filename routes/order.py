@@ -611,8 +611,9 @@ def create_order():
 
     # Calculate totals
     discount_amount = (subtotal * data.get('discount_percent', 0)) / 100
-    tax_amount = ((subtotal - discount_amount) * data.get('tax_percent', 0)) / 100
-    total_amount = subtotal - discount_amount + tax_amount + data.get('delivery_charge', 0)
+
+    #remove tax_amt
+    total_amount = subtotal - discount_amount  + data.get('delivery_charge', 0)
 
     try:
         # Get the next order_index value
@@ -749,8 +750,7 @@ def place_order():
     
     # Calculate final amount
     discount_amount = (subtotal * discount_percent) / 100
-    tax_amount = ((subtotal - discount_amount) * tax_percent) / 100
-    total_amount = subtotal - discount_amount + tax_amount + delivery_charge
+    total_amount = subtotal - discount_amount  + delivery_charge
     
     try:
         # Get the next order_index value
@@ -1189,8 +1189,7 @@ def add_to_order():
     
     # Calculate final amount
     discount_amount = (subtotal * discount_percent) / 100
-    tax_amount = ((subtotal - discount_amount) * tax_percent) / 100
-    total_amount = subtotal - discount_amount + tax_amount + delivery_charge
+    total_amount = subtotal - discount_amount  + delivery_charge
     
     try:
         # Get the next order_index value
@@ -1800,6 +1799,7 @@ def track_order(order_id):
            response = requests.get(url)
            data = response.json()
            shipment_status = data.get("ShipmentData", [{}])[0].get("Shipment", {}).get("Status", {}).get("Status", "")
+           print(shipment_status)
            if shipment_status == 'In Transit':
                 order.delivery_status = 'Shipped'
            elif shipment_status == 'Delivered':
