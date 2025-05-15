@@ -103,6 +103,7 @@ from routes.review import reviews_bp
 from routes.profile import profile_bp
 from routes.forgotpass import forgotpass_bp
 from routes.deviceinfo import device_transaction_bp
+from routes.admin_dashboard import admin_bp
 from apscheduler.schedulers.background import BackgroundScheduler 
 from services.stock_notifier import check_and_notify
 
@@ -178,6 +179,7 @@ app.register_blueprint(profile_bp)
 app.register_blueprint(forgotpass_bp)
 app.register_blueprint(device_transaction_bp)
 app.register_blueprint(reviews_bp)
+app.register_blueprint(admin_bp)
 
 
 @app.after_request
