@@ -450,7 +450,7 @@ def clear_cart():
 
 @order_bp.route('/orders', methods=['GET'])
 def get_orders():
-    orders = Order.query.filter.order_by(Order.created_at.desc()).all()
+    orders = Order.query.order_by(Order.created_at.desc()).all()
 
     return jsonify([{
         'order_id': order.order_id,
@@ -1654,7 +1654,7 @@ def add_pickup_request(order_id):
 #         return {'error': str(e)}
        
 
-@order_bp.route('/change-order-status/<string:order_id>' , methods=['PATCH'])
+@order_bp.route('/change-order-status/<string:order_id>' , methods=['POST'])
 @token_required(roles=['admin'])
 def change_order_status(order_id):
     try:
