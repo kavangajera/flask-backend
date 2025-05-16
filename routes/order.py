@@ -14,6 +14,7 @@ import os
 import requests
 import json
 import smtplib
+from middlewares.Calculate_delivery_charge import calculateDelivery
 from email.mime.text import MIMEText
 
 # Email configuration (replace with your SMTP details)
@@ -593,6 +594,7 @@ def create_order():
 
         unit_price = color.price
         total_price = unit_price * item['quantity']
+
         subtotal += total_price
 
         order_items.append({
@@ -609,11 +611,17 @@ def create_order():
             color.stock_quantity -= item['quantity']
             stock_updates.append(color)
 
-    # Calculate totals
+    #Calculate totals
     discount_amount = (subtotal * data.get('discount_percent', 0)) / 100
 
+    delivery_charge=calculateDelivery(subtotal)
+    
     #remove tax_amt
-    total_amount = subtotal - discount_amount  + data.get('delivery_charge', 0)
+    total_amount = subtotal - discount_amount  + delivery_charge
+
+    gst=subtotal-(subtotal/1.18)
+    subtotal-=gst
+
 
     try:
         # Get the next order_index value
@@ -632,9 +640,10 @@ def create_order():
             total_items=len(order_items),
             subtotal=subtotal,
             discount_percent=data.get('discount_percent', 0),
-            delivery_charge=data.get('delivery_charge', 0),
+            delivery_charge=delivery_charge,
             tax_percent=data.get('tax_percent', 0),
             total_amount=total_amount,
+            gst=gst,
             channel=data.get('channel', 'offline'),
             payment_status='pending',
             order_status='APPROVED',
@@ -743,14 +752,15 @@ def place_order():
                 }), 400
     
     # Calculate order totals
-    subtotal = float(cart.total_cart_price)
-    discount_percent = data.get('discount_percent', 0)
-    tax_percent = data.get('tax_percent', 0)
-    delivery_charge = data.get('delivery_charge', 0)
-    
-    # Calculate final amount
-    discount_amount = (subtotal * discount_percent) / 100
+    subtotal=cart.get('total_cart_price')
+    discount_amount = (subtotal * data.get('discount_percent', 0)) / 100
+
+    delivery_charge=calculateDelivery(subtotal)
     total_amount = subtotal - discount_amount  + delivery_charge
+
+    gst=subtotal-(subtotal/1.18)
+    subtotal-=gst
+    
     
     try:
         # Get the next order_index value
@@ -769,10 +779,11 @@ def place_order():
             address_id=data['address_id'],
             total_items=len(cart_items),
             subtotal=subtotal,
-            discount_percent=discount_percent,
+            discount_percent=data.get('discount_percent' , 0),
             delivery_charge=delivery_charge,
-            tax_percent=tax_percent,
+            tax_percent=data.get('tax_percent', 0),
             total_amount=total_amount,
+            gst=gst,
             channel='online',  # Hardcoded for this endpoint
             payment_status=data['payment_status'],
             payment_type=data.get('payment_type', 'cod'),
@@ -1147,8 +1158,7 @@ def add_to_order():
 
     discount_percent = Decimal(str(data.get('discount_percent', 0)))
     tax_percent = Decimal(str(data.get('tax_percent', 0)))
-    delivery_charge = Decimal(str(data.get('delivery_charge', 0)))
-
+   
     
     # Get customer ID from token
     customer_id = request.current_user.customer_id
@@ -1189,7 +1199,13 @@ def add_to_order():
     
     # Calculate final amount
     discount_amount = (subtotal * discount_percent) / 100
+
+    delivery_charge=calculateDelivery(subtotal)
+
     total_amount = subtotal - discount_amount  + delivery_charge
+
+    gst=subtotal-(subtotal/1.18)
+    subtotal-=gst
     
     try:
         # Get the next order_index value
@@ -1211,6 +1227,7 @@ def add_to_order():
             tax_percent=tax_percent,
             total_amount=total_amount,
             channel='online',
+            gst=gst,
             payment_status=data['payment_status'],
             payment_type=data.get('payment_type', 'cod'),
             fulfillment_status=False,
@@ -1563,6 +1580,70 @@ def add_pickup_request(order_id):
 #        except requests.exceptions.RequestException as e:
 #         return {'error': str(e)}
        
+
+@order_bp.route('/change-order-status/<string:order_id>' , methods=['PATCH'])
+@token_required(roles=['admin'])
+def change_order_status(order_id):
+    try:
+
+        data = request.get_json()
+
+        order = Order.query.filter_by(order_id=order_id).first()
+        if not order:
+            return jsonify({'error': 'Order not found'}), 404
+        
+        # Get customer email
+        customer = None
+        if order.customer_id:
+            customer = Customer.query.get(order.customer_id)
+        elif order.offline_customer_id:
+            # Handle offline customer if needed
+            pass
+            
+        if not customer:
+            return jsonify({'error': 'Customer not found'}), 404
+        
+        order.order_status = data.get('status')
+        db.session.commit()
+        
+        # Send approval email to customer
+        try:
+            subject = f"Your Order #{order_id} Has Been {data.get('status')}"
+            body = f"""
+            Dear {customer.name},
+            
+            We're pleased to inform you that your order #{order_id} has been approved and is being processed.
+            
+            Order Details:
+            - Order ID: {order_id}
+            - Total Amount: {order.total_amount}
+            - Status: Approved
+            
+            Thank you for shopping with us!
+            
+            Best regards,
+            Your Store Team
+            """
+            
+            msg = MIMEText(body)
+            msg['Subject'] = subject
+            msg['From'] = SMTP_USERNAME
+            msg['To'] = customer.email
+            
+            with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+                server.starttls()
+                server.login(SMTP_USERNAME, SMTP_PASSWORD)
+                server.send_message(msg)
+        except Exception as email_error:
+            print(f"Failed to send approval email: {email_error}")
+            # Continue even if email fails
+        
+        return jsonify({'message': 'Order approved successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
 
 
 @order_bp.route('/approve-order/<string:order_id>', methods=['GET'])

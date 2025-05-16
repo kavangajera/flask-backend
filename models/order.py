@@ -28,6 +28,7 @@ class Order(db.Model):
     upload_wbn = db.Column(db.String(50), nullable=True)
     order_status = db.Column(db.String(10), default="PENDING")
     payment_type = db.Column(db.String(20), default='cod')    
+    gst=db.Column(db.Numeric(10, 2), default=0.00)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
