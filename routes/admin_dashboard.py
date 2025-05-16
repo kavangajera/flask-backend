@@ -7,14 +7,14 @@ from models.offline_customer import OfflineCustomer
 from models.product import Product, ProductColor
 from models.address import Address
 from extensions import db
-
+from zoneinfo import ZoneInfo
 admin_bp = Blueprint('admin_dashboard', __name__)
 
 @admin_bp.route('/dashboard/summary')
 def dashboard_summary():
     """Get today's, weekly, monthly revenue and counts"""
     # Calculate dates
-    today = datetime.now().date()
+    today = datetime.now(tz=ZoneInfo('Asia/Kolkata')).date()
     week_start = today - timedelta(days=today.weekday())
     month_start = today.replace(day=1)
     

@@ -4,12 +4,13 @@ from extensions import db
 import os, smtplib
 from email.mime.text import MIMEText
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
 SMTP_PORT = int(os.getenv('SMTP_PORT', 587))
-SMTP_USERNAME = os.getenv('SMTP_USERNAME', 'sodagaramaan786@gmail.com')
-SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', 'gsin qzbq xuqw qihp')
-ALERT_RECEIVER = os.getenv('ALERT_RECEIVER', 'sodagaramaanwork@gmail.com')
+SMTP_USERNAME = os.getenv('SMTP_USERNAME')
+SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')
+ALERT_RECEIVER = os.getenv('ALERT_RECEIVER')
 
 def send_low_stock_email(products, subject):
     try:
@@ -46,7 +47,7 @@ def check_and_notify():
     from app import app
 
     with app.app_context():
-        print(f"🔄 Checking stock at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"🔄 Checking stock at {datetime.now(tz=ZoneInfo('Asia/Kolkata')).strftime('%Y-%m-%d %H:%M:%S')}")
 
         # Query for stock status
         low_stock_colors = ProductColor.query.filter(
@@ -63,7 +64,7 @@ def check_and_notify():
             # Check for existing notification within 2 days
             existing_notification = StockNotification.query.filter(
                 StockNotification.color_id == color.color_id,
-                StockNotification.notified_at >= datetime.now() - timedelta(days=2)
+                StockNotification.notified_at >= datetime.now(tz=ZoneInfo('Asia/Kolkata')) - timedelta(days=2)
             ).first()
 
             if not existing_notification:
@@ -82,7 +83,7 @@ def check_and_notify():
             product = Product.query.filter_by(product_id=color.product_id).first()
             existing_notification = StockNotification.query.filter(
                 StockNotification.color_id == color.color_id,
-                StockNotification.notified_at >= datetime.now() - timedelta(days=2)
+                StockNotification.notified_at >= datetime.now(tz=ZoneInfo('Asia/Kolkata')) - timedelta(days=2)
             ).first()
 
             if not existing_notification:
@@ -103,7 +104,7 @@ def check_and_notify():
                     notification = StockNotification(
                         color_id=product['color_id'],  # Use the color_id from the product dict
                         product_name=product['name'],
-                        notified_at=datetime.now()
+                        notified_at=datetime.now(tz=ZoneInfo('Asia/Kolkata'))
                     )
                     db.session.add(notification)
                 db.session.commit()
@@ -114,13 +115,13 @@ def check_and_notify():
                     notification = StockNotification(
                         color_id=product['color_id'],  # Use the color_id from the product dict
                         product_name=product['name'],
-                        notified_at=datetime.now()
+                        notified_at=datetime.now(tz=ZoneInfo('Asia/Kolkata'))
                     )
                     db.session.add(notification)
                 db.session.commit()
 
         # Cleanup old notifications
         StockNotification.query.filter(
-            StockNotification.notified_at < datetime.now() - timedelta(days=2)
+            StockNotification.notified_at < datetime.now(tz=ZoneInfo('Asia/Kolkata')) - timedelta(days=2)
         ).delete()
         db.session.commit()

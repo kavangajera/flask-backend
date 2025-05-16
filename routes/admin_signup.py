@@ -5,6 +5,7 @@ from flask import Blueprint, request, jsonify, current_app
 from werkzeug.security import generate_password_hash
 from models.customer import Customer
 from extensions import db
+from zoneinfo import ZoneInfo
 
 admin_signup_bp = Blueprint('admin_signup', __name__)
 
@@ -48,7 +49,7 @@ def admin_signup():
             'customer_id': new_admin.customer_id,
             'email': new_admin.email,
             'role': new_admin.role,
-            'exp': datetime.utcnow() + timedelta(days=1)  # Token expires in 1 day
+            'exp': datetime.now(tz=ZoneInfo('Asia/Kolkata')) + timedelta(days=1)  # Token expires in 1 day
         }
         token = jwt.encode(payload, secret_key, algorithm='HS256')
 

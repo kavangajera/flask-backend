@@ -1,14 +1,14 @@
 from extensions import db
 from datetime import datetime
-
+from zoneinfo import ZoneInfo
 class Cart(db.Model):
     __tablename__ = 'carts'
     
     cart_id = db.Column(db.Integer, primary_key=True)
     customer_id = db.Column(db.Integer, db.ForeignKey('customer.customer_id'), nullable=False)
     total_cart_price = db.Column(db.Numeric(10, 2), default=0.00)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now(tz=ZoneInfo('Asia/Kolkata')))
+    updated_at = db.Column(db.DateTime, default=datetime.now(tz=ZoneInfo('Asia/Kolkata')), onupdate=datetime.now(tz=ZoneInfo('Asia/Kolkata')))
     
     # Relationship with Customer
     customer = db.relationship('Customer', backref='cart', lazy=True)
@@ -26,7 +26,7 @@ class CartItem(db.Model):
     color_id = db.Column(db.Integer, db.ForeignKey('product_colors.color_id'), nullable=True)
     quantity = db.Column(db.Integer, default=1)
     total_item_price = db.Column(db.Numeric(10, 2), nullable=False)
-    added_at = db.Column(db.DateTime, default=datetime.utcnow)
+    added_at = db.Column(db.DateTime, default=datetime.now(tz=ZoneInfo('Asia/Kolkata')))
     
     # Relationships with related tables
     # product = db.relationship('Product', backref='cart_items', lazy=True)

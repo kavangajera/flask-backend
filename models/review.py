@@ -1,5 +1,6 @@
 from datetime import datetime
 from extensions import db
+from zoneinfo import ZoneInfo
 
 class Review(db.Model):
     __tablename__ = 'reviews'
@@ -9,8 +10,8 @@ class Review(db.Model):
     customer_id = db.Column(db.Integer, db.ForeignKey('customer.customer_id', ondelete='CASCADE'), nullable=False)
     rating = db.Column(db.Integer, nullable=False)  # Rating from 1-5
     description = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now(tz=ZoneInfo('Asia/Kolkata')))
+    updated_at = db.Column(db.DateTime, default=datetime.now(tz=ZoneInfo('Asia/Kolkata')), onupdate=datetime.now(tz=ZoneInfo('Asia/Kolkata')))
     
     # Relationships
     customer = db.relationship('Customer', backref='reviews')

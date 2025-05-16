@@ -15,6 +15,7 @@ import requests
 import json
 import smtplib
 from email.mime.text import MIMEText
+from zoneinfo import ZoneInfo
 
 # Email configuration (replace with your SMTP details)
 SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
@@ -621,7 +622,7 @@ def create_order():
         next_order_index = max_order + 1
         
         # Current date for order_id generation
-        current_date = datetime.now()
+        current_date = datetime.now(tz=ZoneInfo('Asia/Kolkata'))
         current_year = current_date.year
         
         # Create and add order with explicit order_index
@@ -759,7 +760,7 @@ def place_order():
         next_order_index = max_order + 1
         
         # Current date for order_id generation
-        current_date = datetime.now()
+        current_date = datetime.now(tz=ZoneInfo('Asia/Kolkata'))
         current_year = current_date.year
         
         # Create new order with explicit order_index
@@ -1098,7 +1099,7 @@ def save_serial_numbers():
                 sku_id=sku_id,
                 order_id=order.order_id,
                 in_out=2,  # OUT transaction
-                create_date=datetime.utcnow(),
+                create_date=datetime.now(tz=ZoneInfo('Asia/Kolkata')),
                 price=float(detail.item.unit_price) if detail.item and hasattr(detail.item, 'unit_price') else None,
                 remarks=f"Device sold in order {order.order_id}"
             )
@@ -1197,7 +1198,7 @@ def add_to_order():
         next_order_index = max_order + 1
         
         # Current date for order_id generation
-        current_date = datetime.now()
+        current_date = datetime.now(tz=ZoneInfo('Asia/Kolkata'))
         current_year = current_date.year
         # Create new order with explicit order_index
         order = Order(
@@ -1764,7 +1765,7 @@ def update_order_status(order_id):
         )
         db.session.add(status_history)
         
-        order.updated_at = datetime.utcnow()
+        order.updated_at = datetime.now(tz=ZoneInfo('Asia/Kolkata'))
         db.session.commit()
 
         return jsonify({

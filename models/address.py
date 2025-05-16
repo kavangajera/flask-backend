@@ -1,7 +1,7 @@
 # models/address.py
 from extensions import db
 from datetime import datetime
-
+from zoneinfo import ZoneInfo
 class Address(db.Model):
     __tablename__ = 'address'
     
@@ -26,8 +26,8 @@ class Address(db.Model):
     latitude = db.Column(db.Float)
     longitude = db.Column(db.Float)
     
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now(tz=ZoneInfo('Asia/Kolkata')))
+    updated_at = db.Column(db.DateTime, default=datetime.now(tz=ZoneInfo('Asia/Kolkata')), onupdate=datetime.now(tz=ZoneInfo('Asia/Kolkata')))
 
     # Foreign Keys और Constraints
     __table_args__ = (

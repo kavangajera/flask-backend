@@ -58,7 +58,7 @@
 #             'customer_id': customer.customer_id,
 #             'email': customer.email,
 #             'role': customer.role,
-#             'exp': datetime.utcnow() + timedelta(days=1)  # Token expires in 1 day
+#             'exp': datetime.now(tz=ZoneInfo('Asia/Kolkata'))() + timedelta(days=1)  # Token expires in 1 day
 #         }
 #         token = jwt.encode(payload, secret_key, algorithm='HS256')
 
@@ -202,6 +202,7 @@ from models.customer import Customer
 from extensions import db
 from middlewares.auth import token_required
 from authlib.integrations.flask_client import OAuth
+from zoneinfo import ZoneInfo
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, 
@@ -293,7 +294,7 @@ def google_auth_callback():
             'customer_id': customer.customer_id,
             'email': customer.email,
             'role': customer.role,
-            'exp': datetime.utcnow() + timedelta(days=1)  # Token expires in 1 day
+            'exp': datetime.now(tz=ZoneInfo('Asia/Kolkata')) + timedelta(days=1)  # Token expires in 1 day
         }
         token = jwt.encode(payload, secret_key, algorithm='HS256')
         
@@ -366,7 +367,7 @@ def login():
             'customer_id': customer.customer_id,
             'email': customer.email,
             'role': customer.role,
-            'exp': datetime.utcnow() + timedelta(days=1)  # Token expires in 1 day
+            'exp': datetime.now(tz=ZoneInfo('Asia/Kolkata')) + timedelta(days=1)  # Token expires in 1 day
         }
         token = jwt.encode(payload, secret_key, algorithm='HS256')
 

@@ -40,8 +40,8 @@
 #     product_type = db.Column(db.String(20), nullable=False)  # 'single' or 'variable'
 #     rating = db.Column(db.Float, default=0)
 #     raters = db.Column(db.Integer, default=0)
-#     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-#     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+#     created_at = db.Column(db.DateTime, default=datetime.now(tz=ZoneInfo('Asia/Kolkata')))
+#     updated_at = db.Column(db.DateTime, default=datetime.now(tz=ZoneInfo('Asia/Kolkata')), onupdate=datetime.now(tz=ZoneInfo('Asia/Kolkata')))
     
 
     
@@ -101,6 +101,8 @@
 from extensions import db
 from datetime import datetime
 from models.review import Review
+from zoneinfo import ZoneInfo
+
 class Product(db.Model):
     __tablename__ = 'products'
     
@@ -113,8 +115,8 @@ class Product(db.Model):
     product_type = db.Column(db.String(20), nullable=False)  # 'single' or 'variable'
     rating = db.Column(db.Float, default=0)
     raters = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now(tz=ZoneInfo('Asia/Kolkata')))
+    updated_at = db.Column(db.DateTime, default=datetime.now(tz=ZoneInfo('Asia/Kolkata')), onupdate=datetime.now(tz=ZoneInfo('Asia/Kolkata')))
     sku_id = db.Column(db.String(100), nullable=True, unique=True)
     
     

@@ -8,6 +8,7 @@ import smtplib
 from email.mime.text import MIMEText
 from datetime import datetime, timedelta
 import os
+from zoneinfo import ZoneInfo
 
 forgotpass_bp = Blueprint('forgotpass', __name__)
 
@@ -57,7 +58,7 @@ def send_otp():
             
         # Generate 4-digit OTP
         otp = str(random.randint(1000, 9999))
-        expiration_time = datetime.now() + timedelta(minutes=10)
+        expiration_time = datetime.now(tz=ZoneInfo('Asia/Kolkata')) + timedelta(minutes=10)
         
         # Store OTP with expiration (in production, use Redis)
         otp_storage[email] = {
@@ -92,7 +93,7 @@ def verify_otp():
         if not stored_otp_data:
             return jsonify({'message': 'OTP not found or expired'}), 404
             
-        if datetime.now() > stored_otp_data['expires_at']:
+        if datetime.now(tz=ZoneInfo('Asia/Kolkata')) > stored_otp_data['expires_at']:
             del otp_storage[email]
             return jsonify({'message': 'OTP expired'}), 400
             
