@@ -198,6 +198,7 @@ def get_all_device_transactions():
             'message': str(e)
         }), 500
 
+from zoneinfo import ZoneInfo
 
 @device_transaction_bp.route('/add-device', methods=['POST'])
 def add_device():
@@ -217,7 +218,7 @@ def add_device():
             in_out=int(data.get('in_out', 1)),
             price=float(data['price']) if 'price' in data else None,
             remarks=data.get('remarks', ''),
-            create_date=datetime.now()
+            create_date=datetime.now(tz=ZoneInfo('Asia/Kolkata'))
         )
         
         db.session.add(new_device)

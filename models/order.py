@@ -1,6 +1,6 @@
 from datetime import datetime
 from extensions import db
-
+from zoneinfo import ZoneInfo
 class Order(db.Model):
     __tablename__ = 'orders'
     
@@ -29,8 +29,8 @@ class Order(db.Model):
     order_status = db.Column(db.String(10), default="PENDING")
     payment_type = db.Column(db.String(20), default='cod')    
     gst=db.Column(db.Numeric(10, 2), default=0.00)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now(tz=ZoneInfo('Asia/Kolkata')))
+    updated_at = db.Column(db.DateTime, default=datetime.now(tz=ZoneInfo('Asia/Kolkata')), onupdate=datetime.now(tz=ZoneInfo('Asia/Kolkata')))
     
     # Foreign Keys
     __table_args__ = (
@@ -116,7 +116,7 @@ class OrderStatusHistory(db.Model):
     from_status = db.Column(db.String(255))  # Previous states
     to_status = db.Column(db.String(255))    # New states
     change_reason = db.Column(db.String(255))
-    changed_at = db.Column(db.DateTime, default=datetime.utcnow)
+    changed_at = db.Column(db.DateTime, default=datetime.now(tz=ZoneInfo('Asia/Kolkata')))
     
     # Relationship
     order = db.relationship('Order', backref='status_history')

@@ -11,7 +11,7 @@ from uuid import uuid4
 from middlewares.auth import token_required
 import json
 from sqlalchemy import func
-
+from zoneinfo import ZoneInfo
 from models.wishlist import WishlistItem
 from urllib.parse import unquote
 
@@ -1135,7 +1135,7 @@ def update_product(product_id):
     product.subcategory_id = data.get('subcategory_id', product.subcategory_id)
     product.hsn_id = data.get('hsn_id', product.hsn_id)
     product.product_type = data.get('product_type', product.product_type)
-    product.updated_at = datetime.utcnow()
+    product.updated_at = datetime.now(tz=ZoneInfo('Asia/Kolkata'))
     
     try:
         db.session.commit()
@@ -1166,7 +1166,7 @@ def partially_update_product(product_id):
         product.product_type = data['product_type']
     
     
-    product.updated_at = datetime.utcnow()
+    product.updated_at = datetime.now(tz=ZoneInfo('Asia/Kolkata'))
     
     try:
         db.session.commit()
@@ -1713,7 +1713,7 @@ def update_all_product_data(product_id):
             product.category_id = basic_data.get('category_id', product.category_id)
             product.subcategory_id = basic_data.get('subcategory_id', product.subcategory_id)
             product.product_type = basic_data.get('product_type', product.product_type)
-            product.updated_at = datetime.utcnow()
+            product.updated_at = datetime.now(tz=ZoneInfo('Asia/Kolkata'))
         
         # 2. Process specifications
         if 'specifications' in data:
@@ -1939,7 +1939,7 @@ def update_product_category(product_id):
             if subcategory and subcategory.category_id != category_id:
                 product.subcategory_id = None
         
-        product.updated_at = datetime.utcnow()
+        product.updated_at = datetime.now(tz=ZoneInfo('Asia/Kolkata'))
         db.session.commit()
         
         logger.info(f"Product category updated by admin: {request.current_user.email} - Product ID: {product_id}")
@@ -1978,7 +1978,7 @@ def update_product_subcategory(product_id):
                 
             product.subcategory_id = subcategory_id
         
-        product.updated_at = datetime.utcnow()
+        product.updated_at = datetime.now(tz=ZoneInfo('Asia/Kolkata'))
         db.session.commit()
         
         logger.info(f"Product subcategory updated by admin: {request.current_user.email} - Product ID: {product_id}")
@@ -2032,7 +2032,7 @@ def update_product_categorization(product_id):
             # If no subcategory provided, set to None
             product.subcategory_id = None
         
-        product.updated_at = datetime.utcnow()
+        product.updated_at = datetime.now(tz=ZoneInfo('Asia/Kolkata'))
         db.session.commit()
         
         logger.info(f"Product categorization updated by admin: {request.current_user.email} - Product ID: {product_id}")
@@ -2076,7 +2076,7 @@ def update_product_hsn(product_id):
             
         # Update the HSN
         product.hsn_id = hsn_id
-        product.updated_at = datetime.utcnow()
+        product.updated_at = datetime.now(tz=ZoneInfo('Asia/Kolkata'))
         db.session.commit()
         
         logger.info(f"Product HSN updated by admin: {request.current_user.email} - Product ID: {product_id}")
