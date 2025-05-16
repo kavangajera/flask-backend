@@ -13,6 +13,7 @@ from datetime import datetime
 import os
 import requests
 import json
+from decimal import Decimal
 from werkzeug.exceptions import BadRequest
 import smtplib
 from middlewares.Calculate_delivery_charge import calculateDelivery
@@ -754,13 +755,13 @@ def place_order():
                 }), 400
     
     # Calculate order totals
-    subtotal=cart.get('total_cart_price')
+    subtotal=cart.total_cart_price
     discount_amount = (subtotal * data.get('discount_percent', 0)) / 100
 
     delivery_charge=calculateDelivery(subtotal)
     total_amount = subtotal - discount_amount  + delivery_charge
 
-    gst=subtotal-(subtotal/1.18)
+    gst=subtotal-(subtotal/Decimal(1.18))
     subtotal-=gst
     
     
@@ -1156,9 +1157,11 @@ def save_sr_number():
             return jsonify({'error': 'Order not found'}), 404
 
         # Step 3: Get Customer using cust_id
-        customer = Customer.query.get(order.cust_id)
+        customer = Customer.query.get(order.customer_id)
         if not customer:
-            return jsonify({'error': 'Customer not found'}), 404
+            customer=OfflineCustomer.query.get(order.customer_id)
+            if not customer:
+                return jsonify({'error': 'Customer not found'}), 404
 
         # Process each detail in the input array
         for item in data:
