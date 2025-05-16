@@ -449,7 +449,7 @@ def clear_cart():
 
 @order_bp.route('/orders', methods=['GET'])
 def get_orders():
-    orders = Order.query.filter(Order.order_status != "REJECTED").order_by(Order.created_at.desc()).all()
+    orders = Order.query.filter.order_by(Order.created_at.desc()).all()
 
     return jsonify([{
         'order_id': order.order_id,
