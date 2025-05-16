@@ -1098,7 +1098,7 @@ def save_serial_numbers():
                 sku_id=sku_id,
                 order_id=order.order_id,
                 in_out=2,  # OUT transaction
-                create_date=datetime.now().date(),
+                create_date=datetime.utcnow(),
                 price=float(detail.item.unit_price) if detail.item and hasattr(detail.item, 'unit_price') else None,
                 remarks=f"Device sold in order {order.order_id}"
             )
