@@ -13,6 +13,7 @@ from datetime import datetime
 import os
 import requests
 import json
+from werkzeug.exceptions import BadRequest
 import smtplib
 from middlewares.Calculate_delivery_charge import calculateDelivery
 from email.mime.text import MIMEText
@@ -1060,50 +1061,121 @@ def get_order_details_expanded(order_id):
 
 
 
-@order_bp.route('/orders/save-sr-numbers', methods=['POST'])
-def save_serial_numbers():
+# @order_bp.route('/orders/save-sr-numbers', methods=['POST'])
+# def save_serial_numbers():
+#     try:
+#         data = request.get_json()
+        
+#         # Validate request data
+#         if not data or not isinstance(data, list):
+#             return jsonify({'error': 'Invalid request data format'}), 400
+        
+#         # Get order details first to get order information
+#         order_details = []
+#         for sr_data in data:
+#             detail = OrderDetail.query.get(sr_data['detail_id'])
+#             if not detail:
+#                 continue
+#             order_details.append(detail)
+        
+#         if not order_details:
+#             return jsonify({'error': 'No valid order details found'}), 400
+        
+#         # Get the order from the first detail (all details should belong to the same order)
+#         order = order_details[0].order
+
+#         # Fallback SKU settings
+#         sku_prefix = 'sku'
+#         fallback_sku_counter = 123  # Starting point for fallback SKUs
+
+#         # Process each serial number
+#         for index, (sr_data, detail) in enumerate(zip(data, order_details)):
+#             sr_no = sr_data.get('sr_no')
+#             if not sr_no:
+#                 continue  # Skip if no SR number provided
+                
+#             # Update the SR number in OrderDetail
+#             detail.sr_no = sr_no
+#             db.session.add(detail)
+
+#             # Determine the SKU (with fallback)
+#             if detail.item and hasattr(detail.item, 'sku') and detail.item.sku:
+#                 sku_id = detail.item.sku
+#             else:
+#                 sku_id = f"{sku_prefix}{fallback_sku_counter + index}"
+
+#             # Create OUT transaction for this device
+            # transaction = DeviceTransaction(
+            #     device_srno=sr_no,
+            #     device_name=detail.item.product.name if detail.item and detail.item.product else 'Unknown Device',
+            #     sku_id=sku_id,
+            #     order_id=order.order_id,
+            #     in_out=2,  # OUT transaction
+            #     create_date=datetime.now(tz=ZoneInfo('Asia/Kolkata')),
+            #     price=float(detail.item.unit_price) if detail.item and hasattr(detail.item, 'unit_price') else None,
+            #     remarks=f"Device sold in order {order.order_id}"
+            # )
+            # db.session.add(transaction)
+        
+#         db.session.commit()
+        
+#         return jsonify({
+#             'success': True,
+#             'message': 'Serial numbers saved successfully and OUT transactions created'
+#         })
+        
+#     except Exception as e:
+#         db.session.rollback()
+#         print(f"Error saving serial numbers: {str(e)}")
+#         return jsonify({
+#             'error': 'Failed to save serial numbers',
+#             'details': str(e)
+#         }), 500
+
+@order_bp.route('/save-sr-number', methods=['POST'])
+@token_required(roles=['admin'])
+def save_sr_number():
     try:
         data = request.get_json()
-        
-        # Validate request data
-        if not data or not isinstance(data, list):
-            return jsonify({'error': 'Invalid request data format'}), 400
-        
-        # Get order details first to get order information
-        order_details = []
-        for sr_data in data:
-            detail = OrderDetail.query.get(sr_data['detail_id'])
+
+        if not isinstance(data, list):
+            raise BadRequest('Invalid input: Expected an array.')
+
+        detail_id = data[0].get('detail_id')
+        if not detail_id:
+            return jsonify({'error': 'Missing detail_id'}), 400
+
+        # Step 1: Find Detail
+        detail = OrderDetail.query.get(detail_id)
+        if not detail:
+            return jsonify({'error': 'Detail not found'}), 404
+
+        # Step 2: Get Order using order_id
+        order = Order.query.get(detail.order_id)
+        if not order:
+            return jsonify({'error': 'Order not found'}), 404
+
+        # Step 3: Get Customer using cust_id
+        customer = Customer.query.get(order.cust_id)
+        if not customer:
+            return jsonify({'error': 'Customer not found'}), 404
+
+        # Process each detail in the input array
+        for item in data:
+            detail = OrderDetail.query.get(item.get('detail_id'))
             if not detail:
-                continue
-            order_details.append(detail)
-        
-        if not order_details:
-            return jsonify({'error': 'No valid order details found'}), 400
-        
-        # Get the order from the first detail (all details should belong to the same order)
-        order = order_details[0].order
+                continue  # Skip if not found
 
-        # Fallback SKU settings
-        sku_prefix = 'sku'
-        fallback_sku_counter = 123  # Starting point for fallback SKUs
-
-        # Process each serial number
-        for index, (sr_data, detail) in enumerate(zip(data, order_details)):
-            sr_no = sr_data.get('sr_no')
+            sr_no = item.get('sr_no')
             if not sr_no:
-                continue  # Skip if no SR number provided
-                
-            # Update the SR number in OrderDetail
+                continue  # Skip if SR number is missing
+
             detail.sr_no = sr_no
             db.session.add(detail)
 
-            # Determine the SKU (with fallback)
-            if detail.item and hasattr(detail.item, 'sku') and detail.item.sku:
-                sku_id = detail.item.sku
-            else:
-                sku_id = f"{sku_prefix}{fallback_sku_counter + index}"
+            # Construct a simple SKU ID format
+            sku_id = f"{detail.id}-{sr_no}-{order.order_id}"
 
-            # Create OUT transaction for this device
             transaction = DeviceTransaction(
                 device_srno=sr_no,
                 device_name=detail.item.product.name if detail.item and detail.item.product else 'Unknown Device',
@@ -1112,25 +1184,25 @@ def save_serial_numbers():
                 in_out=2,  # OUT transaction
                 create_date=datetime.now(tz=ZoneInfo('Asia/Kolkata')),
                 price=float(detail.item.unit_price) if detail.item and hasattr(detail.item, 'unit_price') else None,
-                remarks=f"Device sold in order {order.order_id}"
+                remarks=f"Device sold to {customer.name}"
             )
             db.session.add(transaction)
-        
+
         db.session.commit()
-        
+
         return jsonify({
             'success': True,
             'message': 'Serial numbers saved successfully and OUT transactions created'
         })
-        
+
     except Exception as e:
         db.session.rollback()
-        print(f"Error saving serial numbers: {str(e)}")
+        print(f"Error: {str(e)}")
         return jsonify({
             'error': 'Failed to save serial numbers',
             'details': str(e)
         }), 500
-    
+
 
 @order_bp.route('/order/add-to-order', methods=['POST'])
 @token_required(roles=['customer'])
