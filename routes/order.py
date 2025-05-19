@@ -644,7 +644,7 @@ def create_order():
     amount_after_discount = subtotal - total_discount_amount
     
     # Calculate GST (assumed 18% based on original code)
-    gst = subtotal - (subtotal / 1.18)
+    gst = subtotal - (subtotal / Decimal('1.18'))
     
     # Subtotal without GST
     subtotal_without_gst = subtotal - gst
