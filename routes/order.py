@@ -669,7 +669,7 @@ def create_order():
             total_items=len(order_items),
             subtotal=subtotal_without_gst,  # Subtotal without GST
             discount_percent=order_discount_percent,  # Order-level discount percent
-            discount_amount=total_discount_amount,  # Combined total discount amount
+            # Removed: discount_amount=total_discount_amount
             delivery_charge=delivery_charge,
             tax_percent=data.get('tax_percent', 0),
             total_amount=total_amount,
@@ -701,10 +701,10 @@ def create_order():
                 color_id=item.get('color_id'),
                 quantity=item['quantity'],
                 unit_price=item['unit_price'],
-                discount_percent=item.get('discount_percent', 0),  # Store item discount percent
-                discount_amount=item.get('discount_amount', 0),    # Store item discount amount
                 total_price=item['total_price']
             )
+            
+            # Note: Removed discount_percent and discount_amount parameters if OrderItem doesn't have these columns
             
             db.session.add(order_item)
             db.session.flush()  # Generate order_item.item_id
@@ -2221,9 +2221,11 @@ def get_order_details(order_id):
                     product_specs[spec.key] = spec.value
             product_info['specifications'] = product_specs
         
-        # Get model details
+        # Get model details - Updated to match get_order_details_expanded
         model_info = {}
-        if item.model:
+        
+        # Try to get model through proper relationships
+        if item.model and hasattr(item, 'model'):
             model_info = {
                 'model_id': item.model.model_id,
                 'name': item.model.name,
@@ -2236,6 +2238,22 @@ def get_order_details(order_id):
                 for spec in item.model.specifications:
                     model_specs[spec.key] = spec.value
             model_info['specifications'] = model_specs
+        elif item.product_id:
+            # If no model is directly associated, try to find the default model
+            default_model = ProductModel.query.filter_by(product_id=item.product_id).first()
+            if default_model:
+                model_info = {
+                    'model_id': default_model.model_id,
+                    'name': default_model.name,
+                    'description': default_model.description
+                }
+                
+                # Get model specifications
+                model_specs = {}
+                if hasattr(default_model, 'specifications'):
+                    for spec in default_model.specifications:
+                        model_specs[spec.key] = spec.value
+                model_info['specifications'] = model_specs
         
         # Get color details
         color_info = {}
@@ -2459,9 +2477,11 @@ def get_order_details_by_sr_number(sr_number):
                     product_specs[spec.key] = spec.value
             product_info['specifications'] = product_specs
         
-        # Get model details
+        # Get model details - Updated to match get_order_details_expanded
         model_info = {}
-        if item.model:
+        
+        # Try to get model through proper relationships
+        if item.model and hasattr(item, 'model'):
             model_info = {
                 'model_id': item.model.model_id,
                 'name': item.model.name,
@@ -2474,6 +2494,22 @@ def get_order_details_by_sr_number(sr_number):
                 for spec in item.model.specifications:
                     model_specs[spec.key] = spec.value
             model_info['specifications'] = model_specs
+        elif item.product_id:
+            # If no model is directly associated, try to find the default model
+            default_model = ProductModel.query.filter_by(product_id=item.product_id).first()
+            if default_model:
+                model_info = {
+                    'model_id': default_model.model_id,
+                    'name': default_model.name,
+                    'description': default_model.description
+                }
+                
+                # Get model specifications
+                model_specs = {}
+                if hasattr(default_model, 'specifications'):
+                    for spec in default_model.specifications:
+                        model_specs[spec.key] = spec.value
+                model_info['specifications'] = model_specs
         
         # Get color details
         color_info = {}
