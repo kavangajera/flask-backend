@@ -2240,3 +2240,4 @@ def get_order_details(order_id):
     }
     
     return jsonify(response), 200
+
