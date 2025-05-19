@@ -1025,6 +1025,89 @@ def get_order_items_expanded(order_id):
         print(f"Error in get_order_items_expanded: {str(e)}")
         return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
 
+# @order_bp.route('/orders/<string:order_id>/details-expanded', methods=['GET'])
+# def get_order_details_expanded(order_id):
+#     try:
+#         # Get the order and verify it exists
+#         order = Order.query.get(order_id)
+#         if not order:
+#             return jsonify({'error': 'Order not found'}), 404
+        
+#         # Get all order details for this order
+#         order_details = OrderDetail.query.filter_by(order_id=order_id).all()
+        
+#         expanded_details = []
+#         for detail in order_details:
+#             # Get related order item
+#             order_item = detail.item
+            
+#             # Safely access related objects
+#             product_name = order_item.product.name if order_item.product and hasattr(order_item, 'product') else None
+#             model_name = order_item.model.name if order_item.model and hasattr(order_item, 'model') else None
+#             color_name = order_item.color.name if order_item.color and hasattr(order_item, 'color') else None
+            
+#             expanded_details.append({
+#                 'detail_id': detail.id,
+#                 'item_id': detail.item_id,
+#                 'order_id': detail.order_id,
+#                 'product_id': detail.product_id,
+#                 'sr_no': detail.sr_no,
+#                 'product_name': product_name,
+#                 'model_name': model_name if model_name else product_name,
+#                 'color_name': color_name,
+#                 'unit_price': float(order_item.unit_price) if order_item else 0,
+#                 'status': getattr(detail, 'status', None),
+#                 'created_at': detail.created_at.isoformat() if hasattr(detail, 'created_at') and detail.created_at else None
+#             })
+        
+#         # Include address information like in the /orders endpoint
+#         address_data = None
+#         if order.address:
+#             address_data = {
+#                 'address_id': order.address.address_id,
+#                 'name': order.address.name,
+#                 'mobile': order.address.mobile,
+#                 'pincode': order.address.pincode,
+#                 'locality': order.address.locality,
+#                 'address_line': order.address.address_line,
+#                 'city': order.address.city,
+#                 'state': {
+#                     'state_id': order.address.state.state_id,
+#                     'name': order.address.state.name,
+#                     'abbreviation': order.address.state.abbreviation
+#                 },
+#                 'landmark': order.address.landmark,
+#                 'alternate_phone': order.address.alternate_phone,
+#                 'address_type': order.address.address_type,
+#                 'latitude': order.address.latitude,
+#                 'longitude': order.address.longitude,
+#                 'is_available': order.address.is_available  #  Make sure this is included
+#             }
+        
+#         return jsonify({
+#             'order_id': order.order_id,
+#             'customer_id': order.customer_id,
+#             'offline_customer_id': order.offline_customer_id,
+#             'customer_type': 'offline' if order.offline_customer_id else 'online',
+#             'total_details': len(expanded_details),
+#             'subtotal': float(order.subtotal),
+#             'total_amount': float(order.total_amount),
+#             'payment_status': order.payment_status,
+#             'fulfillment_status': order.fulfillment_status,
+#             'delivery_status': order.delivery_status,
+#             'created_at': order.created_at.isoformat(),
+#             'awb_number': order.awb_number,
+#             'payment_type': order.payment_type,
+#             'upload_wbn': order.upload_wbn,
+#             'address': address_data,
+#             'details': expanded_details
+#         })
+
+#     except Exception as e:
+#         print(f"Error in get_order_details_expanded: {str(e)}")
+#         return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
+
+
 @order_bp.route('/orders/<string:order_id>/details-expanded', methods=['GET'])
 def get_order_details_expanded(order_id):
     try:
@@ -1043,9 +1126,22 @@ def get_order_details_expanded(order_id):
             
             # Safely access related objects
             product_name = order_item.product.name if order_item.product and hasattr(order_item, 'product') else None
-            model_name = order_item.model.name if order_item.model and hasattr(order_item, 'model') else None
+            
+            # Try to get model name through proper relationships
+            model_name = None
+            if order_item.model and hasattr(order_item, 'model'):
+                model_name = order_item.model.name
+            # If model is not available but we have product_id, try to find the default model
+            elif order_item.product_id:
+                # For single products, there should be one model - get it directly
+                default_model = ProductModel.query.filter_by(product_id=order_item.product_id).first()
+                if default_model:
+                    model_name = default_model.name
+            
             color_name = order_item.color.name if order_item.color and hasattr(order_item, 'color') else None
             
+            # Use model name from database but fall back to product name if model_name is None
+            # This handles products created before the model_name field was implemented
             expanded_details.append({
                 'detail_id': detail.id,
                 'item_id': detail.item_id,
@@ -1053,7 +1149,7 @@ def get_order_details_expanded(order_id):
                 'product_id': detail.product_id,
                 'sr_no': detail.sr_no,
                 'product_name': product_name,
-                'model_name': model_name if model_name else product_name,
+                'model_name': model_name,  # Fallback to product_name if model_name is None
                 'color_name': color_name,
                 'unit_price': float(order_item.unit_price) if order_item else 0,
                 'status': getattr(detail, 'status', None),
@@ -1081,7 +1177,7 @@ def get_order_details_expanded(order_id):
                 'address_type': order.address.address_type,
                 'latitude': order.address.latitude,
                 'longitude': order.address.longitude,
-                'is_available': order.address.is_available  #  Make sure this is included
+                'is_available': order.address.is_available  #  Make sure this is included
             }
         
         return jsonify({
@@ -1106,7 +1202,6 @@ def get_order_details_expanded(order_id):
     except Exception as e:
         print(f"Error in get_order_details_expanded: {str(e)}")
         return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
-
 
 
 
