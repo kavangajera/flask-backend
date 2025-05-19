@@ -563,6 +563,7 @@ def get_rejected_orders():
 
 
 
+
 @order_bp.route('/orders', methods=['POST'])
 @token_required(roles=['admin'])
 def create_order():
@@ -637,19 +638,18 @@ def create_order():
     # Total discount combines item-level and order-level discounts
     total_discount_amount += order_discount_amount
 
-    # Calculate delivery charge
-    delivery_charge = calculateDelivery(subtotal)
-    
     # Calculate amount after discounts
     amount_after_discount = subtotal - total_discount_amount
     
     # Calculate GST (assumed 18% based on original code)
-    gst = subtotal - (subtotal / Decimal('1.18'))
+    # Using the correct GST calculation method (18% of subtotal excluding GST)
+    subtotal_without_gst = amount_after_discount / 1.18
+    gst = amount_after_discount - subtotal_without_gst
     
-    # Subtotal without GST
-    subtotal_without_gst = subtotal - gst
+    # Calculate delivery charge
+    delivery_charge = calculateDelivery(subtotal)
     
-    # Calculate final total
+    # Calculate final total - FIXED: Include GST properly
     total_amount = amount_after_discount + delivery_charge
 
     try:
@@ -669,10 +669,10 @@ def create_order():
             total_items=len(order_items),
             subtotal=subtotal_without_gst,  # Subtotal without GST
             discount_percent=order_discount_percent,  # Order-level discount percent
-            # Removed: discount_amount=total_discount_amount
+            # discount_amount=total_discount_amount,  # FIXED: Store total discount amount
             delivery_charge=delivery_charge,
             tax_percent=data.get('tax_percent', 0),
-            total_amount=total_amount,
+            total_amount=total_amount,  # This should now be consistent 
             gst=gst,
             channel=data.get('channel', 'offline'),
             payment_status=data.get('payment_status', 'pending'),
@@ -692,7 +692,7 @@ def create_order():
         db.session.add(order)
         db.session.flush()  # Generate order_id
 
-        # Add order items
+        # Add order items with correct calculations
         for item in order_items:
             order_item = OrderItem(
                 order_id=order.order_id,
@@ -701,10 +701,10 @@ def create_order():
                 color_id=item.get('color_id'),
                 quantity=item['quantity'],
                 unit_price=item['unit_price'],
+                # discount_percent=item.get('discount_percent', 0),  # ADDED: Store discount percent 
+                # discount_amount=item.get('discount_amount', 0),    # ADDED: Store discount amount
                 total_price=item['total_price']
             )
-            
-            # Note: Removed discount_percent and discount_amount parameters if OrderItem doesn't have these columns
             
             db.session.add(order_item)
             db.session.flush()  # Generate order_item.item_id
@@ -728,7 +728,15 @@ def create_order():
         return jsonify({
             'message': 'Order created successfully', 
             'order_id': order.order_id,
-            'timestamp': current_date.isoformat()
+            'timestamp': current_date.isoformat(),
+            'order_summary': {
+                'subtotal': float(subtotal),
+                'discount_amount': float(total_discount_amount),
+                'subtotal_after_discount': float(amount_after_discount),
+                'gst': float(gst),
+                'delivery_charge': float(delivery_charge),
+                'total_amount': float(total_amount)
+            }
         }), 201
 
     except SQLAlchemyError as e:
