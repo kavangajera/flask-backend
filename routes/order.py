@@ -675,7 +675,7 @@ def create_order():
             total_amount=total_amount,
             gst=gst,
             channel=data.get('channel', 'offline'),
-            payment_status='pending',
+            payment_status=data.get('payment_status', 'pending'),
             order_status='APPROVED',
             payment_type=data.get('payment_type', 'cod'),
             fulfillment_status=data.get('fulfillment_status', False),
