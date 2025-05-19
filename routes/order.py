@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from models.order import Order,OrderItem,OrderDetail, OrderStatusHistory
+from models.order import Order,OrderItem,OrderDetail, OrderStatusHistory, SerialNumber
 from models.customer import Customer
 from models.offline_customer import OfflineCustomer
 from models.cart import Cart,CartItem
@@ -2236,6 +2236,245 @@ def get_order_details(order_id):
             'address': address_info,
             'items': items_info,
             'status_history': status_history
+        }
+    }
+    
+    return jsonify(response), 200
+
+
+
+@order_bp.route('/order/by-serial-number/<string:sr_number>', methods=['GET'])
+def get_order_details_by_sr_number(sr_number):
+    """
+    Get comprehensive details about a specific order by serial number (sr_number)
+    
+    Returns all information related to the order including:
+    - Order basic info
+    - Customer details
+    - Address details
+    - Order items with product information
+    - Serial numbers for each item
+    - Order status history
+    """
+    # Find serial number in database
+    serial_number = SerialNumber.query.filter_by(sr_number=sr_number).first()
+    
+    if not serial_number:
+        # Try checking if it's in order details
+        order_detail = OrderDetail.query.filter_by(sr_no=sr_number).first()
+        if not order_detail:
+            return jsonify({
+                'success': False,
+                'message': f'No order found with serial number {sr_number}'
+            }), 404
+        
+        # Get order from order detail
+        order_id = order_detail.order_id
+    else:
+        # Get order_id from serial number via order item
+        order_id = serial_number.order_item.order_id
+    
+    # Find the order
+    order = Order.query.filter_by(order_id=order_id).first()
+    
+    if not order:
+        return jsonify({
+            'success': False,
+            'message': f'Order with ID {order_id} not found'
+        }), 404
+    
+    # Get customer information
+    customer_info = {}
+    if order.customer_id:
+        customer = Customer.query.get(order.customer_id)
+        if customer:
+            customer_info = {
+                'type': 'online',
+                'customer_id': customer.customer_id,
+                'name': customer.name,
+                'email': customer.email,
+                'mobile': customer.mobile,
+                'role': customer.role,
+                'gender': customer.gender,
+                'age': customer.age,
+                'created_at': customer.created_at.isoformat() if hasattr(customer, 'created_at') and customer.created_at else None
+            }
+    elif order.offline_customer_id:
+        offline_customer = OfflineCustomer.query.get(order.offline_customer_id)
+        if offline_customer:
+            customer_info = {
+                'type': 'offline',
+                'customer_id': offline_customer.customer_id,
+                'name': offline_customer.name,
+                'email': offline_customer.email,
+                'mobile': offline_customer.mobile,
+                'role': offline_customer.role,
+                'created_at': offline_customer.created_at.isoformat() if hasattr(offline_customer, 'created_at') and offline_customer.created_at else None
+            }
+    
+    # Get address information
+    address_info = {}
+    if order.address_id:
+        address = Address.query.get(order.address_id)
+        if address:
+            address_info = {
+                'address_id': address.address_id,
+                'name': address.name,
+                'mobile': address.mobile,
+                'pincode': address.pincode,
+                'locality': address.locality,
+                'address_line': address.address_line,
+                'city': address.city,
+                'state_id': address.state_id,
+                'state_name': address.state.name if address.state else None,
+                'landmark': address.landmark,
+                'alternate_phone': address.alternate_phone,
+                'address_type': address.address_type,
+                'latitude': address.latitude,
+                'longitude': address.longitude
+            }
+    
+    # Get order items with product details and serial numbers
+    items_info = []
+    for item in order.items:
+        # Get product details
+        product_info = {}
+        if item.product:
+            product_info = {
+                'product_id': item.product.product_id,
+                'name': item.product.name,
+                'description': item.product.description,
+                'product_type': item.product.product_type,
+                'rating': item.product.rating,
+                'raters': item.product.raters,
+                'sku_id': item.product.sku_id,
+                'category_id': item.product.category_id
+            }
+            
+            # Get product images
+            product_images = []
+            if hasattr(item.product, 'images'):
+                product_images = [img.image_url for img in item.product.images]
+            product_info['images'] = product_images
+            
+            # Get product specifications
+            product_specs = {}
+            if hasattr(item.product, 'specifications'):
+                for spec in item.product.specifications:
+                    product_specs[spec.key] = spec.value
+            product_info['specifications'] = product_specs
+        
+        # Get model details
+        model_info = {}
+        if item.model:
+            model_info = {
+                'model_id': item.model.model_id,
+                'name': item.model.name,
+                'description': item.model.description
+            }
+            
+            # Get model specifications
+            model_specs = {}
+            if hasattr(item.model, 'specifications'):
+                for spec in item.model.specifications:
+                    model_specs[spec.key] = spec.value
+            model_info['specifications'] = model_specs
+        
+        # Get color details
+        color_info = {}
+        if item.color:
+            color_info = {
+                'color_id': item.color.color_id,
+                'name': item.color.name,
+                'price': float(item.color.price) if hasattr(item.color, 'price') and item.color.price is not None else None,
+                'original_price': float(item.color.original_price) if hasattr(item.color, 'original_price') and item.color.original_price is not None else None,
+                'stock_quantity': item.color.stock_quantity if hasattr(item.color, 'stock_quantity') else None
+            }
+            
+            # Get color images
+            color_images = []
+            if hasattr(item.color, 'images'):
+                color_images = [img.image_url for img in item.color.images]
+            color_info['images'] = color_images
+        
+        # Get serial numbers
+        serial_numbers = []
+        if hasattr(item, 'serial_numbers'):
+            serial_numbers = [
+                {
+                    'id': sn.id,
+                    'sr_number': sn.sr_number
+                } for sn in item.serial_numbers
+            ]
+        
+        # Get item details
+        item_details = []
+        if hasattr(item, 'details'):
+            item_details = [
+                {
+                    'id': detail.id,
+                    'sr_no': detail.sr_no
+                } for detail in item.details
+            ]
+        
+        # Combine all item information
+        items_info.append({
+            'item_id': item.item_id if hasattr(item, 'item_id') else None,
+            'product': product_info,
+            'model': model_info,
+            'color': color_info,
+            'quantity': item.quantity if hasattr(item, 'quantity') else None,
+            'unit_price': float(item.unit_price) if hasattr(item, 'unit_price') and item.unit_price is not None else None,
+            'total_price': float(item.total_price) if hasattr(item, 'total_price') and item.total_price is not None else None,
+            'serial_numbers': serial_numbers,
+            'details': item_details
+        })
+    
+    # Get order status history
+    status_history = []
+    if hasattr(order, 'status_history'):
+        status_history = [
+            {
+                'id': record.id,
+                'changed_by': record.changed_by if hasattr(record, 'changed_by') else None,
+                'from_status': record.from_status if hasattr(record, 'from_status') else None,
+                'to_status': record.to_status if hasattr(record, 'to_status') else None,
+                'change_reason': record.change_reason if hasattr(record, 'change_reason') else None,
+                'changed_at': record.changed_at.isoformat() if hasattr(record, 'changed_at') and record.changed_at else None
+            } for record in order.status_history
+        ]
+    
+    # Create the response with all order information
+    response = {
+        'success': True,
+        'data': {
+            'order': {
+                'order_id': order.order_id,
+                'order_index': order.order_index if hasattr(order, 'order_index') else None,
+                'total_items': order.total_items if hasattr(order, 'total_items') else None,
+                'subtotal': float(order.subtotal) if order.subtotal is not None else None,
+                'discount_percent': float(order.discount_percent) if order.discount_percent is not None else None,
+                'delivery_charge': float(order.delivery_charge) if order.delivery_charge is not None else None,
+                'tax_percent': float(order.tax_percent) if order.tax_percent is not None else None,
+                'total_amount': float(order.total_amount) if order.total_amount is not None else None,
+                'channel': order.channel if hasattr(order, 'channel') else None,
+                'payment_status': order.payment_status if hasattr(order, 'payment_status') else None,
+                'fulfillment_status': order.fulfillment_status if hasattr(order, 'fulfillment_status') else None,
+                'delivery_status': order.delivery_status if hasattr(order, 'delivery_status') else None,
+                'delivery_method': order.delivery_method if hasattr(order, 'delivery_method') else None,
+                'awb_number': order.awb_number if hasattr(order, 'awb_number') else None,
+                'upload_wbn': order.upload_wbn if hasattr(order, 'upload_wbn') else None,
+                'order_status': order.order_status if hasattr(order, 'order_status') else None,
+                'payment_type': order.payment_type if hasattr(order, 'payment_type') else None,
+                'gst': float(order.gst) if order.gst is not None else None,
+                'created_at': order.created_at.isoformat() if order.created_at else None,
+                'updated_at': order.updated_at.isoformat() if order.updated_at else None
+            },
+            'customer': customer_info,
+            'address': address_info,
+            'items': items_info,
+            'status_history': status_history,
+            'searched_serial_number': sr_number
         }
     }
     
