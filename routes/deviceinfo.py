@@ -55,7 +55,7 @@ def upload_device_transaction():
             try:
                 transaction = DeviceTransaction(
                     device_srno=row.get('Device_SRNO'),
-                    device_name=row.get('Device_Name'),
+                    model_name=row.get('Device_Name'),
                     sku_id=row.get('SKU_ID'),
                     order_id=row.get('Order_ID'),
                     in_out=int(row.get('IN_Out')) if row.get('IN_Out') else None,
@@ -108,7 +108,7 @@ def search_device():
         response = {
             'device_srno': transactions[0].device_srno,
             'sku_id': transactions[0].sku_id,
-            'device_name': transactions[0].device_name
+            'model_name': transactions[0].model_name
         }
 
         if return_trans:
@@ -177,7 +177,7 @@ def get_all_device_transactions():
             data.append({
                 'id': t.auto_id,
                 'device_srno': t.device_srno,
-                'device_name': t.device_name,
+                'model_name': t.model_name,
                 'sku_id': t.sku_id,
                 'order_id': t.order_id,
                 'in_out': t.in_out,
@@ -206,13 +206,13 @@ def add_device():
         data = request.get_json()
         
         # Validate required fields
-        if not data.get('device_srno') or not data.get('device_name'):
+        if not data.get('device_srno') or not data.get('model_name'):
             return jsonify({'success': False, 'message': 'Device SR No and Name are required'}), 400
         
         # Create new device transaction
         new_device = DeviceTransaction(
             device_srno=data['device_srno'],
-            device_name=data['device_name'],
+            model_name=data['model_name'],
             sku_id=data.get('sku_id', ''),
             order_id=data.get('order_id', ''),
             in_out=int(data.get('in_out', 1)),
@@ -229,7 +229,7 @@ def add_device():
             'message': 'Device added successfully',
             'data': {
                 'device_srno': new_device.device_srno,
-                'device_name': new_device.device_name
+                'model_name': new_device.model_name
             }
         })
 

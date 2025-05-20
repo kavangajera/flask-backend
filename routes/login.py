@@ -289,7 +289,7 @@ def google_auth_callback():
                 logger.info(f"New user created via Google Auth: {email}")
         
         # Generate JWT token
-        secret_key = current_app.config['JWT_SECRET_KEY']
+        secret_key = current_app.config['SECRET_KEY']
         payload = {
             'customer_id': customer.customer_id,
             'email': customer.email,

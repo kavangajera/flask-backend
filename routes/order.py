@@ -500,10 +500,10 @@ def get_orders():
             'quantity': item.quantity,
             'unit_price': float(item.unit_price),
             'total_price': float(item.total_price),
+            'extra_item_discount_percent': item.extra_item_discount_percent,
             'image_url': item.product.images[0].image_url if item.product and item.product.images else None,
         } for item in order.items]
     } for order in orders])
-
 
 
 
@@ -566,187 +566,6 @@ def get_rejected_orders():
 
 
 
-
-# @order_bp.route('/orders', methods=['POST'])
-# @token_required(roles=['admin'])
-# def create_order():
-#     data = request.get_json()
-
-#     # Validate customer
-#     customer = OfflineCustomer.query.get(data.get('customer_id'))
-#     if not customer:
-#         return jsonify({'error': 'Customer not found'}), 404
-
-#     # Get customer's default address
-#     address = Address.query.filter_by(offline_customer_id=customer.customer_id).first()
-#     if not address:
-#         return jsonify({'error': 'No address found for customer'}), 404
-
-#     subtotal = 0
-#     total_discount_amount = 0
-#     order_items = []
-#     stock_updates = []
-
-#     # Prepare order items and check stock
-#     for item in data.get('items', []):
-#         product = Product.query.get(item['product_id'])
-#         if not product:
-#             return jsonify({'error': f"Product {item['product_id']} not found"}), 404
-
-#         color = ProductColor.query.get(item.get('color_id')) if item.get('color_id') else None
-#         model = ProductModel.query.get(item.get('model_id')) if item.get('model_id') else None
-
-#         if color and color.stock_quantity < item['quantity']:
-#             return jsonify({
-#                 'error': f"Not enough stock for color '{color.name}'. Available: {color.stock_quantity}"
-#             }), 400
-
-#         # Use provided unit_price if available, otherwise use color price
-#         unit_price = color.price
-        
-#         # Calculate item subtotal (before discount)
-#         item_subtotal = unit_price * item['quantity']
-        
-#         # Calculate item discount if provided
-#         item_discount_percent = item.get('extra_discount_percent', 0)
-#         item_discount_amount = (item_subtotal * item_discount_percent) / 100
-        
-#         # Calculate total price after discount
-#         total_price = item_subtotal - item_discount_amount
-
-#         # Add to order totals
-#         subtotal += item_subtotal
-#         total_discount_amount += item_discount_amount
-
-#         order_items.append({
-#             'product_id': item['product_id'],
-#             'model_id': item.get('model_id'),
-#             'color_id': item.get('color_id'),
-#             'quantity': item['quantity'],
-#             'unit_price': unit_price,
-#             'discount_percent': item_discount_percent,
-#             'discount_amount': item_discount_amount,
-#             'total_price': total_price
-#         })
-
-#         # Keep track of stock updates
-#         if color:
-#             color.stock_quantity -= item['quantity']
-#             stock_updates.append(color)
-
-#     # Apply any order-level discount if needed (optional)
-#     order_discount_percent = data.get('discount_percent', 0)
-#     order_discount_amount = (subtotal * order_discount_percent) / 100
-    
-#     # Total discount combines item-level and order-level discounts
-#     total_discount_amount += order_discount_amount
-
-#     # Calculate amount after discounts
-#     amount_after_discount = subtotal - total_discount_amount
-    
-#     # Calculate GST (assumed 18% based on original code)
-#     # Using the correct GST calculation method (18% of subtotal excluding GST)
-#     subtotal_without_gst = amount_after_discount / Decimal('1.18')
-#     gst = amount_after_discount - subtotal_without_gst
-    
-#     # Calculate delivery charge
-#     delivery_charge = calculateDelivery(amount_after_discount)
-    
-#     # Calculate final total - FIXED: Include GST properly
-#     total_amount = amount_after_discount + delivery_charge
-
-#     try:
-#         # Get the next order_index value
-#         max_order = db.session.query(db.func.max(Order.order_index)).scalar() or 0
-#         next_order_index = max_order + 1
-        
-#         # Current date for order_id generation
-#         current_date = datetime.now(tz=ZoneInfo('Asia/Kolkata'))
-#         current_year = current_date.year
-        
-#         # Create and add order with explicit order_index
-#         order = Order(
-#             order_index=next_order_index,
-#             offline_customer_id=customer.customer_id,
-#             address_id=address.address_id,
-#             total_items=len(order_items),
-#             subtotal=subtotal_without_gst,  # Subtotal without GST
-#             discount_percent=order_discount_percent,  # Order-level discount percent
-#             # discount_amount=total_discount_amount,  # FIXED: Store total discount amount
-#             delivery_charge=delivery_charge,
-#             tax_percent=data.get('tax_percent', 0),
-#             total_amount=total_amount,  # This should now be consistent 
-#             gst=gst,
-#             channel=data.get('channel', 'offline'),
-#             payment_status=data.get('payment_status', 'pending'),
-#             order_status='APPROVED',
-#             payment_type=data.get('payment_type', 'cod'),
-#             fulfillment_status=data.get('fulfillment_status', False),
-#             delivery_status=data.get('delivery_status', 'intransit'),
-#             delivery_method=data.get('delivery_method', 'shipping'),
-#             created_at=current_date
-#         )
-        
-#         next_year = current_year + 1
-#         next_year = str(next_year)
-#         current_year = str(current_year)    
-#         order.order_id = f"{current_year}{next_year[2:]}#{next_order_index}"
-        
-#         db.session.add(order)
-#         db.session.flush()  # Generate order_id
-
-#         # Add order items with correct calculations
-#         for item in order_items:
-#             order_item = OrderItem(
-#                 order_id=order.order_id,
-#                 product_id=item['product_id'],
-#                 model_id=item.get('model_id'),
-#                 color_id=item.get('color_id'),
-#                 quantity=item['quantity'],
-#                 unit_price=item['total_price'] / item['quantity'],  # Use unit price from total price
-#                 # discount_percent=item.get('discount_percent', 0),  # ADDED: Store discount percent 
-#                 # discount_amount=item.get('discount_amount', 0),    # ADDED: Store discount amount
-#                 total_price=item['total_price']
-#             )
-            
-#             db.session.add(order_item)
-#             db.session.flush()  # Generate order_item.item_id
-
-#             for i in range(1, order_item.quantity + 1):
-#                 order_detail = OrderDetail(
-#                     item_id=order_item.item_id,
-#                     order_id=order.order_id,
-#                     product_id=order_item.product_id
-#                 )
-#                 db.session.add(order_detail)
-            
-#         # Apply stock updates
-#         for color in stock_updates:
-#             db.session.add(color)
-#             if color.stock_quantity <= color.threshold:
-#                 print(f"Warning: Product color {color.name} stock is below threshold ({color.stock_quantity}/{color.threshold})")
-
-#         db.session.commit()
-
-#         return jsonify({
-#             'message': 'Order created successfully', 
-#             'order_id': order.order_id,
-#             'timestamp': current_date.isoformat(),
-#             'order_summary': {
-#                 'subtotal': float(subtotal),
-#                 'discount_amount': float(total_discount_amount),
-#                 'subtotal_after_discount': float(amount_after_discount),
-#                 'gst': float(gst),
-#                 'delivery_charge': float(delivery_charge),
-#                 'total_amount': float(total_amount)
-#             }
-#         }), 201
-
-#     except SQLAlchemyError as e:
-#         db.session.rollback()
-#         return jsonify({'error': f'Database error: {str(e)}'}), 500
-
-
 @order_bp.route('/orders', methods=['POST'])
 # @token_required(roles=['admin'])
 def create_order():
@@ -763,7 +582,7 @@ def create_order():
         return jsonify({'error': 'No address found for customer'}), 404
 
     subtotal = 0
-    total_discount_amount = 0
+    total_discount_amount = Decimal('0')
     order_items = []
     stock_updates = []
 
@@ -781,8 +600,15 @@ def create_order():
                 'error': f"Not enough stock for color '{color.name}'. Available: {color.stock_quantity}"
             }), 400
 
+
         item_discount_percent = item.get('extra_discount_percent', 0)
-        unit_price = color.price - (color.price*item_discount_percent/100)
+
+        discount_percent = Decimal(item_discount_percent) / Decimal('100')
+
+        unit_price = color.price - (color.price * discount_percent)
+
+        # Now apply rounding: if decimal part >= 0.5, round up, else down
+        unit_price = int(unit_price) + 1 if unit_price - int(unit_price) >= Decimal('0.5') else int(unit_price)
         
         # Calculate item subtotal (before discount)
         item_subtotal = unit_price * item['quantity']
@@ -797,17 +623,17 @@ def create_order():
         # Add to order totals
         subtotal += item_subtotal
         total_discount_amount += item_discount_amount
-
+        print(item.get('extra_discount_percent', 0))
         order_items.append({
             'product_id': item['product_id'],
             'model_id': item.get('model_id'),
             'color_id': item.get('color_id'),
+            'extra_item_discount_percent':item.get('extra_discount_percent', 0),
             'quantity': item['quantity'],
             'unit_price': unit_price,
             'discount_percent': item_discount_percent,
             'discount_amount': item_discount_amount,
-            'total_price': total_price,
-            'extra_item_discount_percent':item.get('extra_discount_percent'),
+            'total_price': total_price
         })
 
         # Keep track of stock updates
@@ -816,16 +642,17 @@ def create_order():
             stock_updates.append(color)
 
     # Apply any order-level discount if needed (optional)
-    order_discount_percent = data.get('discount_percent', 0)
-    order_discount_amount = (subtotal * order_discount_percent) / 100
+    order_discount_percent = Decimal(data.get('discount_percent', 0))
+    order_discount_amount = (subtotal * order_discount_percent) / Decimal('100')
     
-    
+    # Total discount combines item-level and order-level discounts
     total_discount_amount += order_discount_amount
 
     # Calculate amount after discounts
     amount_after_discount = subtotal - order_discount_amount
     
-    
+    # Calculate GST (assumed 18% based on original code)
+    # Using the correct GST calculation method (18% of subtotal excluding GST)
     subtotal_without_gst = amount_after_discount / Decimal('1.18')
     gst = amount_after_discount - subtotal_without_gst
     
@@ -884,10 +711,10 @@ def create_order():
                 color_id=item.get('color_id'),
                 quantity=item['quantity'],
                 unit_price=item['unit_price'],
+                extra_item_discount_percent=item['extra_item_discount_percent'],
                 # discount_percent=item.get('discount_percent', 0),  # ADDED: Store discount percent 
                 # discount_amount=item.get('discount_amount', 0),    # ADDED: Store discount amount
-                total_price=item['total_price'],
-                extra_item_discount_percent=item.get('extra_item_discount_percent'),
+                total_price=item['total_price']
             )
             
             db.session.add(order_item)
@@ -2403,7 +2230,7 @@ def get_order_details(order_id):
                 product_images = [img.image_url for img in item.product.images]
             product_info['images'] = product_images
             
-            # Replace the product specifications code block (around line 100)
+            # Get product specifications
             product_specs = {}
             if hasattr(item.product, 'specifications'):
                 for spec in item.product.specifications:
@@ -2423,7 +2250,6 @@ def get_order_details(order_id):
             }
             
             # Get model specifications
-            # Replace the model specifications code block (around line 125)
             model_specs = {}
             if hasattr(item.model, 'specifications'):
                 for spec in item.model.specifications:
@@ -2494,6 +2320,7 @@ def get_order_details(order_id):
             'quantity': item.quantity if hasattr(item, 'quantity') else None,
             'unit_price': float(item.unit_price) if hasattr(item, 'unit_price') and item.unit_price is not None else None,
             'total_price': float(item.total_price) if hasattr(item, 'total_price') and item.total_price is not None else None,
+            'extra_item_discount_percent': float(item.extra_item_discount_percent) if hasattr(item, 'extra_item_discount_percent') and item.extra_item_discount_percent is not None else None,
             'serial_numbers': serial_numbers,
             'details': item_details
         })
@@ -2753,6 +2580,7 @@ def get_order_details_by_sr_number(sr_number):
             'quantity': item.quantity if hasattr(item, 'quantity') else None,
             'unit_price': float(item.unit_price) if hasattr(item, 'unit_price') and item.unit_price is not None else None,
             'total_price': float(item.total_price) if hasattr(item, 'total_price') and item.total_price is not None else None,
+            'extra_item_discount_percent': float(item.extra_item_discount_percent) if hasattr(item, 'extra_item_discount_percent') and item.extra_item_discount_percent is not None else None,
             'serial_numbers': serial_numbers,
             'details': item_details
         })
@@ -2806,12 +2634,3 @@ def get_order_details_by_sr_number(sr_number):
     }
     
     return jsonify(response), 200
-
-
-
-
-
-
-
-
-
