@@ -689,7 +689,7 @@ def create_order():
             order_status='APPROVED',
             payment_type=data.get('payment_type', 'cod'),
             fulfillment_status=data.get('fulfillment_status', False),
-            delivery_status=data.get('delivery_status', 'intransit'),
+            delivery_status="pending",
             delivery_method=data.get('delivery_method', 'shipping'),
             created_at=current_date
         )
@@ -1163,6 +1163,7 @@ def get_order_details_expanded(order_id):
                 'item_id': detail.item_id,
                 'order_id': detail.order_id,
                 'product_id': detail.product_id,
+                'model_id': detail.model_id,
                 'sr_no': detail.sr_no,
                 'product_name': product_name,
                 'model_name': model_name,  # Fallback to product_name if model_name is None
@@ -1342,7 +1343,7 @@ def save_sr_number():
 
             transaction = DeviceTransaction(
                 device_srno=sr_no,
-                device_name=detail.item.product.name if detail.item and detail.item.product else 'Unknown Device',
+                model_name=detail.item.product.name if detail.item and detail.item.product else 'Unknown Device',
                 sku_id=sku_id,
                 order_id=order.order_id,
                 in_out=2,  # OUT transaction

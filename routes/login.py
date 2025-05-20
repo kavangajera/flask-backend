@@ -454,7 +454,7 @@ def check_authentication():
         
         # Verify token
         try:
-            secret_key = current_app.config['JWT_SECRET_KEY']
+            secret_key = current_app.config['SECRET_KEY']
             payload = jwt.decode(token, secret_key, algorithms=['HS256'])
             
             # Find customer
