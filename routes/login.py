@@ -289,12 +289,12 @@ def google_auth_callback():
                 logger.info(f"New user created via Google Auth: {email}")
         
         # Generate JWT token
-        secret_key = current_app.config['SECRET_KEY']
+        secret_key = current_app.config['JWT_SECRET_KEY']
         payload = {
             'customer_id': customer.customer_id,
             'email': customer.email,
             'role': customer.role,
-            'exp': datetime.now(tz=ZoneInfo('Asia/Kolkata')) + timedelta(days=1)  # Token expires in 1 day
+            # 'exp': datetime.now(tz=ZoneInfo('Asia/Kolkata')) + timedelta(days=1)  # Token expires in 1 day
         }
         token = jwt.encode(payload, secret_key, algorithm='HS256')
         
@@ -362,12 +362,12 @@ def login():
             return jsonify({'message': 'Invalid email or password'}), 401
 
         # Generate JWT token
-        secret_key = current_app.config['SECRET_KEY']
+        secret_key = current_app.config['JWT_SECRET_KEY']
         payload = {
             'customer_id': customer.customer_id,
             'email': customer.email,
             'role': customer.role,
-            'exp': datetime.now(tz=ZoneInfo('Asia/Kolkata')) + timedelta(days=1)  # Token expires in 1 day
+            # 'exp': datetime.now(tz=ZoneInfo('Asia/Kolkata')) + timedelta(days=1)  # Token expires in 1 day
         }
         token = jwt.encode(payload, secret_key, algorithm='HS256')
 
@@ -454,7 +454,7 @@ def check_authentication():
         
         # Verify token
         try:
-            secret_key = current_app.config['SECRET_KEY']
+            secret_key = current_app.config['JWT_SECRET_KEY']
             payload = jwt.decode(token, secret_key, algorithms=['HS256'])
             
             # Find customer

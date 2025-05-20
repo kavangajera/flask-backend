@@ -71,6 +71,7 @@ class OrderItem(db.Model):
     quantity = db.Column(db.Integer, default=1)
     unit_price = db.Column(db.Numeric(10, 2), nullable=False)
     total_price = db.Column(db.Numeric(10, 2), nullable=False)
+    extra_item_discount_percent=db.Column(db.Numeric(5, 2), default=0.00)
     
     # Relationships
     product = db.relationship('Product', backref='order_items')

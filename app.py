@@ -134,7 +134,7 @@ client_secret = os.getenv('GOOGLE_CLIENT_SECRET')
 # Generate a secure secret key
 # app.config['SECRET_KEY'] = secrets.token_hex(32)
 
-app.config['SECRET_KEY'] = "shrivarajunizationfaranfusion"
+# app.config['SECRET_KEY'] = "shrivarajunizationfaranfusion"
 
 # Google OAuth configuration
 app.config['GOOGLE_CLIENT_ID'] = client_id  # Replace with your Google Client ID
@@ -156,7 +156,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Security configurations
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', secrets.token_hex(32))
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=1)
+# app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=1)
 
 # Initialize extensions
 db.init_app(app)
