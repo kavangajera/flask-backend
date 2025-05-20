@@ -7,7 +7,7 @@ class OfflineCustomer(UserMixin, db.Model):
     customer_id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255))
     mobile = db.Column(db.String(15), unique=True, nullable=True)
-    email = db.Column(db.String(255), unique=True)
+    email = db.Column(db.String(255), unique=False)
     
     
     role = db.Column(db.String(20), default='offline_customer')

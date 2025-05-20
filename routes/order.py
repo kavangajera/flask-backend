@@ -1145,14 +1145,17 @@ def get_order_details_expanded(order_id):
             
             # Try to get model name through proper relationships
             model_name = None
+            model_id=None
             if order_item.model and hasattr(order_item, 'model'):
                 model_name = order_item.model.name
+                model_id=order_item.model.model_id
             # If model is not available but we have product_id, try to find the default model
             elif order_item.product_id:
                 # For single products, there should be one model - get it directly
                 default_model = ProductModel.query.filter_by(product_id=order_item.product_id).first()
                 if default_model:
                     model_name = default_model.name
+                    model_id=default_model.model_id
             
             color_name = order_item.color.name if order_item.color and hasattr(order_item, 'color') else None
             
@@ -1163,7 +1166,7 @@ def get_order_details_expanded(order_id):
                 'item_id': detail.item_id,
                 'order_id': detail.order_id,
                 'product_id': detail.product_id,
-                'model_id': detail.model_id,
+                'model_id':model_id,
                 'sr_no': detail.sr_no,
                 'product_name': product_name,
                 'model_name': model_name,  # Fallback to product_name if model_name is None
