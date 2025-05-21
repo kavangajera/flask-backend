@@ -134,7 +134,7 @@ client_secret = os.getenv('GOOGLE_CLIENT_SECRET')
 # Generate a secure secret key
 # app.config['SECRET_KEY'] = secrets.token_hex(32)
 
-# app.config['SECRET_KEY'] = "shrivarajunizationfaranfusion"
+app.config['SECRET_KEY'] = "shrivarajunizationfaranfusion"
 
 # Google OAuth configuration
 app.config['GOOGLE_CLIENT_ID'] = client_id  # Replace with your Google Client ID

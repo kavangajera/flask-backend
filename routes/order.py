@@ -1131,51 +1131,48 @@ def get_order_details_expanded(order_id):
         order = Order.query.get(order_id)
         if not order:
             return jsonify({'error': 'Order not found'}), 404
-        
+
         # Get all order details for this order
         order_details = OrderDetail.query.filter_by(order_id=order_id).all()
-        
+
         expanded_details = []
         for detail in order_details:
             # Get related order item
             order_item = detail.item
-            
+
             # Safely access related objects
             product_name = order_item.product.name if order_item.product and hasattr(order_item, 'product') else None
-            
-            # Try to get model name through proper relationships
+
+            # Try to get model name and id through proper relationships
             model_name = None
-            model_id=None
+            model_id = None
             if order_item.model and hasattr(order_item, 'model'):
                 model_name = order_item.model.name
-                model_id=order_item.model.model_id
-            # If model is not available but we have product_id, try to find the default model
+                model_id = order_item.model.model_id
             elif order_item.product_id:
-                # For single products, there should be one model - get it directly
+                # Fallback to default model if model relation is missing
                 default_model = ProductModel.query.filter_by(product_id=order_item.product_id).first()
                 if default_model:
                     model_name = default_model.name
-                    model_id=default_model.model_id
-            
+                    model_id = default_model.model_id
+
             color_name = order_item.color.name if order_item.color and hasattr(order_item, 'color') else None
-            
-            # Use model name from database but fall back to product name if model_name is None
-            # This handles products created before the model_name field was implemented
+
             expanded_details.append({
                 'detail_id': detail.id,
                 'item_id': detail.item_id,
                 'order_id': detail.order_id,
                 'product_id': detail.product_id,
-                'model_id':model_id,
                 'sr_no': detail.sr_no,
                 'product_name': product_name,
-                'model_name': model_name,  # Fallback to product_name if model_name is None
+                'model_name': model_name,
+                'model_id': model_id,
                 'color_name': color_name,
                 'unit_price': float(order_item.unit_price) if order_item else 0,
                 'status': getattr(detail, 'status', None),
                 'created_at': detail.created_at.isoformat() if hasattr(detail, 'created_at') and detail.created_at else None
             })
-        
+
         # Include address information like in the /orders endpoint
         address_data = None
         if order.address:
@@ -1197,9 +1194,9 @@ def get_order_details_expanded(order_id):
                 'address_type': order.address.address_type,
                 'latitude': order.address.latitude,
                 'longitude': order.address.longitude,
-                'is_available': order.address.is_available  #  Make sure this is included
+                'is_available': order.address.is_available
             }
-        
+
         return jsonify({
             'order_id': order.order_id,
             'customer_id': order.customer_id,
@@ -1222,7 +1219,6 @@ def get_order_details_expanded(order_id):
     except Exception as e:
         print(f"Error in get_order_details_expanded: {str(e)}")
         return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
-
 
 
 
@@ -1324,7 +1320,7 @@ def save_sr_number():
         # Step 3: Get Customer using cust_id
         customer = Customer.query.get(order.customer_id)
         if not customer:
-            customer=OfflineCustomer.query.get(order.offline_customer_id)
+            customer = OfflineCustomer.query.get(order.offline_customer_id)
             if not customer:
                 return jsonify({'error': 'Customer not found'}), 404
 
@@ -1341,12 +1337,26 @@ def save_sr_number():
             detail.sr_no = sr_no
             db.session.add(detail)
 
+            # Get the product information
+            product = detail.product
+            
+            # Get the model name if available
+            model_name = "Unknown Device"
+            if product:
+                # Check if this product has models
+                product_model = ProductModel.query.filter_by(product_id=product.product_id).first()
+                if product_model:
+                    model_name = product_model.name
+                else:
+                    # If no models, use the product name
+                    model_name = product.name
+
             # Construct a simple SKU ID format
             sku_id = f"{detail.id}-{sr_no}-{order.order_id}"
 
             transaction = DeviceTransaction(
                 device_srno=sr_no,
-                model_name=detail.item.product.name if detail.item and detail.item.product else 'Unknown Device',
+                model_name=model_name,
                 sku_id=sku_id,
                 order_id=order.order_id,
                 in_out=2,  # OUT transaction
